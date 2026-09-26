@@ -43,7 +43,7 @@ class CodePreprocessor:
     def fix_types(frame: pd.DataFrame) -> pd.DataFrame:
         """Set categorical and datetime dtypes."""
         out = frame.copy()
-        for column in ("language", "label", "source", "dataset"):
+        for column in ("language", "label", "label_status", "source", "dataset"):
             out[column] = out[column].astype("category")
         out["created_at"] = pd.to_datetime(out["created_at"], errors="coerce")
         return out

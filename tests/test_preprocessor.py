@@ -4,8 +4,8 @@ from ai_code_detector.data.preprocessor import CodePreprocessor
 
 
 def _frame(rows):
-    base = {"language": "python", "task_id": "t1", "label": "student", "source": "lesson",
-            "dataset": "x", "created_at": None}
+    base = {"language": "python", "task_id": "t1", "label": "human",
+            "label_status": "unverified", "source": "lesson", "dataset": "x", "created_at": None}
     return pd.DataFrame([base | r for r in rows])
 
 

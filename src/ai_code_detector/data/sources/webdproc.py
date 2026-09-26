@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
-from ai_code_detector.data.schema import CodeRecord, Label, SourceKind
+from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind
 from ai_code_detector.data.sources.base import DataSource
 
 
@@ -13,7 +13,8 @@ class WebdprocSource(DataSource):
     """Read ``*.json`` exports where each file holds a list of samples.
 
     Expected keys per sample: ``id``, ``code``, ``language``, ``source``, ``task_id``,
-    ``author_id``, ``created_at``. All samples in these exports are student code.
+    ``author_id``, ``created_at``. All samples are student code written in 2023 or
+    later, when AI assistants were available, so the human label is unverified.
     """
 
     name = "webdproc"
@@ -36,7 +37,8 @@ class WebdprocSource(DataSource):
             record_id=f"{self.name}:{sample['source']}:{sample['id']}",
             code=sample["code"],
             language=sample["language"],
-            label=Label.STUDENT,
+            label=Label.HUMAN,
+            label_status=LabelStatus.UNVERIFIED,
             source=SourceKind(sample["source"]),
             task_id=f"{self.name}:{sample['task_id']}",
             dataset=self.name,
