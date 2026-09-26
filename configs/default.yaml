@@ -1,0 +1,24 @@
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  figures: reports/figures
+
+sources:
+  webdproc:
+    dir: data/raw/webdproc
+
+preprocessing:
+  min_code_chars: 50
+  languages: [html, css, javascript, python, cpp, csharp, php, java]
+
+features:
+  comment_markers:
+    javascript: ["//", "/*"]
+    css: ["/*"]
+    html: ["<!--"]
+    python: ["#"]
+    cpp: ["//", "/*"]
+    csharp: ["//", "/*"]
+    php: ["//", "#", "/*"]
+    java: ["//", "/*"]

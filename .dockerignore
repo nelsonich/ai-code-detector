@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.egg-info
+data
+reports
+notebooks/.ipynb_checkpoints
