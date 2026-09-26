@@ -7,10 +7,12 @@ paths:
 sources:
   webdproc:
     dir: data/raw/webdproc
+  progpedia:
+    dir: data/raw/progpedia
 
 preprocessing:
   min_code_chars: 50
-  languages: [html, css, javascript, python, cpp, csharp, php, java]
+  languages: [html, css, javascript, python, c, cpp, csharp, php, java]
 
 features:
   comment_markers:
@@ -18,6 +20,7 @@ features:
     css: ["/*"]
     html: ["<!--"]
     python: ["#"]
+    c: ["//", "/*"]
     cpp: ["//", "/*"]
     csharp: ["//", "/*"]
     php: ["//", "#", "/*"]
