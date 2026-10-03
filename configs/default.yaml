@@ -65,8 +65,9 @@ generation:
       model: deepseek-flash
       base_url: https://api.deepseek.com
       api_key_env: DEEPSEEK_API_KEY
-      # Its reasoning shares the token budget; 8000 cut some answers short.
-      max_tokens: 16000
+      # Its reasoning shares the token budget: 8000 cut some answers short, 16000 still cut
+      # ~3% on hard CodeNet problems.
+      max_tokens: 32000
       # Peak-hour prices, so the estimate stays on the safe side.
       price_input: 0.30
       price_output: 1.20
