@@ -47,14 +47,14 @@ generation:
       api_key_env: GROQ_API_KEY
       min_interval: 2.5
       reasoning_effort: low
-    qwen:
+    # Qwen on Groq's free tier allows only 1000 output tokens per minute, too few for code.
+    deepseek:
       provider: openai_compatible
-      model: qwen/qwen3.8-27b
-      base_url: https://api.groq.com/openai/v1
-      api_key_env: GROQ_API_KEY
-      min_interval: 2.5
-      # Groq's free tier rejects requests whose max_tokens exceeds its output tokens per minute.
-      max_tokens: 4000
+      model: deepseek-flash
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      # Its reasoning shares the token budget; 8000 cut some answers short.
+      max_tokens: 16000
 
 preprocessing:
   min_code_chars: 50
