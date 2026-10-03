@@ -70,6 +70,18 @@ def test_answer_cut_by_token_limit_is_rejected(monkeypatch):
     assert calls[0]["reasoning_effort"] == "low"
 
 
+def test_billed_output_includes_hidden_reasoning():
+    from types import SimpleNamespace
+
+    from ai_code_detector.generation.clients import OpenAICompatibleGenerator
+
+    hidden = SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=950)
+    assert OpenAICompatibleGenerator._billed_tokens(hidden) == (100, 850)
+    plain = SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=150)
+    assert OpenAICompatibleGenerator._billed_tokens(plain) == (100, 50)
+    assert OpenAICompatibleGenerator._billed_tokens(None) == (0, 0)
+
+
 def test_html_to_text_keeps_code_examples_and_drops_style():
     html = ("<style>p{}</style><h2>Loops</h2><p>Use <b>for</b>:</p>"
             "<pre><code>for i in x:\n  pass</code></pre>")

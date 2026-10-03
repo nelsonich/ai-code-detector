@@ -126,9 +126,20 @@ class OpenAICompatibleGenerator(Generator):
         text = choice.message.content or ""
         if not text.strip():
             raise GenerationError(f"{self.name}: empty answer")
-        usage = response.usage
-        return Answer(text, response.model or self.model,
-                      usage.prompt_tokens if usage else 0, usage.completion_tokens if usage else 0)
+        return Answer(text, response.model or self.model, *self._billed_tokens(response.usage))
+
+    @staticmethod
+    def _billed_tokens(usage) -> tuple[int, int]:
+        """Input and output tokens to bill.
+
+        Some providers leave hidden reasoning out of ``completion_tokens`` but still bill
+        it; it shows up in ``total_tokens``, so output is taken as total minus input.
+        """
+        if usage is None:
+            return 0, 0
+        prompt = usage.prompt_tokens or 0
+        output = max(usage.completion_tokens or 0, (usage.total_tokens or 0) - prompt)
+        return prompt, output
 
 
 def build_generator(name: str, settings: dict[str, Any], max_tokens: int) -> Generator:
