@@ -6,7 +6,7 @@ from ai_code_detector.data.sources.generated import GeneratedSource
 from ai_code_detector.generation.clients import Answer, GenerationError, Generator
 from ai_code_detector.generation.extract import extract_code
 from ai_code_detector.generation.prompts import PromptStyle, build_prompt, html_to_text
-from ai_code_detector.generation.runner import GenerationRunner, plan_jobs
+from ai_code_detector.generation.runner import GenerationRunner, Pricing, plan_jobs
 
 
 class _FakeGenerator(Generator):
@@ -18,7 +18,7 @@ class _FakeGenerator(Generator):
         self.calls += 1
         if self.fail:
             raise GenerationError("quota")
-        return Answer(self.answer, f"{self.name}-served")
+        return Answer(self.answer, f"{self.name}-served", input_tokens=1000, output_tokens=500)
 
 
 def test_extract_tagged_aliases_untagged_and_thinking():
@@ -70,6 +70,18 @@ def test_answer_cut_by_token_limit_is_rejected(monkeypatch):
     assert calls[0]["reasoning_effort"] == "low"
 
 
+def test_billed_output_includes_hidden_reasoning():
+    from types import SimpleNamespace
+
+    from ai_code_detector.generation.clients import OpenAICompatibleGenerator
+
+    hidden = SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=950)
+    assert OpenAICompatibleGenerator._billed_tokens(hidden) == (100, 850)
+    plain = SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=150)
+    assert OpenAICompatibleGenerator._billed_tokens(plain) == (100, 50)
+    assert OpenAICompatibleGenerator._billed_tokens(None) == (0, 0)
+
+
 def test_html_to_text_keeps_code_examples_and_drops_style():
     html = ("<style>p{}</style><h2>Loops</h2><p>Use <b>for</b>:</p>"
             "<pre><code>for i in x:\n  pass</code></pre>")
@@ -101,6 +113,33 @@ def _tables():
     return records, tasks
 
 
+def test_generator_stops_when_budget_is_reached(tmp_path):
+    records, tasks = _tables()
+    generator = _FakeGenerator("paid", answer="```python\nprint(1)\n```")
+    jobs = plan_jobs(records, tasks, ["paid"], [PromptStyle.STANDARD])
+    # One solution costs (1000 * 2 + 500 * 10) / 1e6 = $0.007; budget allows one.
+    pricing = {"paid": Pricing(2.0, 10.0, budget_usd=0.005)}
+    summary = GenerationRunner({"paid": generator}, tasks, tmp_path, 1000, pricing).run(jobs)
+
+    assert summary["paid"]["written"] == 1 and summary["paid"]["skipped"] == 2
+    assert summary["paid"]["spent_usd"] == 0.007
+    again = GenerationRunner({"paid": generator}, tasks, tmp_path, 1000, pricing).run(jobs)
+    assert again["paid"]["written"] == 0 and generator.calls == 1
+
+
+def test_exhaustive_plan_covers_every_style_and_language_and_keeps_default_jobs():
+    records, tasks = _tables()
+    styles = list(PromptStyle)
+    default = plan_jobs(records, tasks, ["g1"], styles)
+    full = plan_jobs(records, tasks, ["g1"], styles, exhaustive_datasets=["p"])
+
+    t5 = [j for j in full if j.task_id == "t5"]
+    assert {j.languages for j in t5} == {("c",), ("java",), ("python",)}
+    assert len(t5) == 3 * len(styles)
+    assert len([j for j in full if j.task_id == "t1"]) == 1
+    assert {j.job_id for j in default} <= {j.job_id for j in full}
+
+
 def test_plan_uses_human_languages_and_skips_tasks_without_statement():
     records, tasks = _tables()
     styles = list(PromptStyle)
@@ -130,6 +169,7 @@ def test_run_writes_results_resumes_and_feeds_generated_source(tmp_path):
 
     rows = [json.loads(line) for line in (tmp_path / "good.jsonl").read_text().splitlines()]
     assert rows[0]["served_model"] == "good-served"
+    assert rows[0]["usage"] == {"input_tokens": 1000, "output_tokens": 500}
 
     generated = list(GeneratedSource(tmp_path).load())
     t1 = {r.language: r for r in generated if r.task_id == "t1"}

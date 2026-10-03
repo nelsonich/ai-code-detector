@@ -18,10 +18,12 @@ class GenerationError(RuntimeError):
 
 @dataclass(frozen=True)
 class Answer:
-    """Text returned by a generator and the model that actually produced it."""
+    """Text returned by a generator, the model that produced it and the tokens it billed."""
 
     text: str
     served_model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 class Generator(ABC):
@@ -85,7 +87,8 @@ class AnthropicGenerator(Generator):
         text = "".join(block.text for block in response.content if block.type == "text")
         if not text.strip():
             raise GenerationError(f"{self.name}: empty answer ({response.stop_reason})")
-        return Answer(text, response.model)
+        usage = response.usage
+        return Answer(text, response.model, usage.input_tokens, usage.output_tokens)
 
 
 class OpenAICompatibleGenerator(Generator):
@@ -123,7 +126,20 @@ class OpenAICompatibleGenerator(Generator):
         text = choice.message.content or ""
         if not text.strip():
             raise GenerationError(f"{self.name}: empty answer")
-        return Answer(text, response.model or self.model)
+        return Answer(text, response.model or self.model, *self._billed_tokens(response.usage))
+
+    @staticmethod
+    def _billed_tokens(usage) -> tuple[int, int]:
+        """Input and output tokens to bill.
+
+        Some providers leave hidden reasoning out of ``completion_tokens`` but still bill
+        it; it shows up in ``total_tokens``, so output is taken as total minus input.
+        """
+        if usage is None:
+            return 0, 0
+        prompt = usage.prompt_tokens or 0
+        output = max(usage.completion_tokens or 0, (usage.total_tokens or 0) - prompt)
+        return prompt, output
 
 
 def build_generator(name: str, settings: dict[str, Any], max_tokens: int) -> Generator:
