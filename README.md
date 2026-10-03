@@ -27,14 +27,38 @@ Every record has a class and a trust level for that class:
 Models are evaluated on verified labels only; unverified data is used for analysis and
 for estimating how much of it looks AI-generated.
 
+## Getting started
+
+Requirements: Docker Desktop, git, ~10 GB of free disk space for the datasets.
+
+```bash
+git clone git@github.com:nelsonich/ai-code-detector.git
+cd ai-code-detector
+docker compose build
+docker compose run --rm app pytest      # all tests must pass
+./scripts/download_data.sh              # PROGpedia (~70 MB) and CodeNet (~8.3 GB), resumable
+docker compose run --rm app             # full pipeline: load -> preprocess -> features -> analyze -> plot
+```
+
+`./scripts/download_data.sh progpedia` fetches only PROGpedia, which is enough to start.
+The webdproc export is private and is shared outside git; put its `samples_*.json` and
+`tasks_*.json` files into `data/raw/webdproc/`. Sources whose directory is missing are skipped.
+
+The team plan is in [docs/PLAN.md](docs/PLAN.md).
+
 ## Layout
 
 ```
-configs/default.yaml             paths, filters, feature settings
+configs/default.yaml             paths, sources, filters, feature settings
 data/raw|interim|processed/      raw exports -> unified table -> clean table + features
+docs/                            team plan and notes
 notebooks/                       exploration; reusable logic lives in src/
 reports/figures/                 generated plots
+scripts/download_data.sh         fetches public datasets
 src/ai_code_detector/
+  cli.py                         command line: runs pipeline stages
+  pipeline/data.py               stages load, preprocess
+  pipeline/analysis.py           stages features, analyze, plot
   data/schema.py                 CodeRecord: the single record format
   data/sources/                  one module per dataset
   data/loader.py                 DatasetLoader
@@ -42,20 +66,21 @@ src/ai_code_detector/
   features/extractor.py          FeatureExtractor (shared with the model)
   analysis/analyzer.py           CodeAnalyzer
   visualization/visualizer.py    Visualizer
-  cli.py                         stages: load, preprocess, features, analyze, plot, run
 tests/
 ```
+
+Layers: `cli.py` (interface) -> `pipeline/` (stage order, files between stages) ->
+domain classes (`data/`, `features/`, `analysis/`, `visualization/`).
 
 ## Run
 
 ```bash
-docker compose build
 docker compose run --rm app                       # full pipeline
 docker compose run --rm app ai-code-detector plot # one stage
 docker compose up notebook                        # JupyterLab on http://localhost:8888
 ```
 
-Checks:
+Checks (also run by CI on every pull request):
 
 ```bash
 docker compose run --rm app ruff check .
@@ -64,5 +89,11 @@ docker compose run --rm app pytest
 
 ## Data
 
-Raw exports go to `data/raw/<source>/` and are never committed. Student identifiers are
-salted hashes; no names or e-mails are stored.
+| Source | Label | Content | License |
+|---|---|---|---|
+| webdproc | human, unverified | student code 2023-2026 (private export) | private |
+| [PROGpedia](https://zenodo.org/records/7449056) | human, verified | student code 2003-2020: Java, Python, C, C++ | CC-BY-4.0 |
+| [Project CodeNet](https://github.com/IBM/Project_CodeNet) | human, verified | online judge code up to 2021: C#, PHP, JavaScript (sampled) | CDLA-Permissive-2.0 |
+
+Raw data lives in `data/raw/<source>/` and is never committed. Student identifiers are
+salted hashes; no names or e-mails are stored. API keys go into `.env`, which is ignored by git.

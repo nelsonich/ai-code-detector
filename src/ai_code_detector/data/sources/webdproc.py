@@ -8,9 +8,22 @@ from pathlib import Path
 from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind
 from ai_code_detector.data.sources.base import DataSource
 
+DATE_FORMATS = ("%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S")
+
+
+def _parse_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return datetime.fromisoformat(value)
+
 
 class WebdprocSource(DataSource):
-    """Read ``*.json`` exports where each file holds a list of samples.
+    """Read ``samples_*.json`` exports where each file holds a list of samples.
 
     Expected keys per sample: ``id``, ``code``, ``language``, ``source``, ``task_id``,
     ``author_id``, ``created_at``. All samples are student code written in 2023 or
@@ -25,14 +38,13 @@ class WebdprocSource(DataSource):
 
     def load(self) -> Iterator[CodeRecord]:
         """Yield one record per exported sample."""
-        for path in sorted(self.export_dir.glob("*.json")):
+        for path in sorted(self.export_dir.glob("samples_*.json")):
             with open(path, encoding="utf-8") as handle:
                 samples = json.load(handle)
             for sample in samples:
                 yield self._to_record(sample)
 
     def _to_record(self, sample: dict) -> CodeRecord:
-        created = sample.get("created_at")
         return CodeRecord(
             record_id=f"{self.name}:{sample['source']}:{sample['id']}",
             code=sample["code"],
@@ -43,6 +55,6 @@ class WebdprocSource(DataSource):
             task_id=f"{self.name}:{sample['task_id']}",
             dataset=self.name,
             author_id=sample.get("author_id"),
-            created_at=datetime.fromisoformat(created) if created else None,
+            created_at=_parse_date(sample.get("created_at")),
             extra={k: v for k, v in sample.items() if k.startswith("meta_")},
         )

@@ -9,6 +9,11 @@ sources:
     dir: data/raw/webdproc
   progpedia:
     dir: data/raw/progpedia
+  codenet:
+    dir: data/raw/codenet/Project_CodeNet
+    per_language: 300
+    max_per_problem: 3
+    seed: 42
 
 preprocessing:
   min_code_chars: 50
