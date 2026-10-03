@@ -6,6 +6,7 @@ from ai_code_detector.data.preprocessor import CodePreprocessor
 from ai_code_detector.data.sources import (
     CodenetSource,
     DataSource,
+    GeneratedSource,
     ProgpediaSource,
     WebdprocSource,
 )
@@ -28,6 +29,8 @@ def build_sources(config: Config) -> list[DataSource]:
             max_per_problem=codenet["max_per_problem"],
             seed=codenet["seed"],
         ))
+    if (PROJECT_ROOT / settings["generated"]["dir"]).exists():
+        sources.append(GeneratedSource(PROJECT_ROOT / settings["generated"]["dir"]))
     return sources
 
 

@@ -21,6 +21,7 @@ class Config:
     sources: dict[str, Any] = field(default_factory=dict)
     preprocessing: dict[str, Any] = field(default_factory=dict)
     features: dict[str, Any] = field(default_factory=dict)
+    generation: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def load(cls, path: Path = DEFAULT_CONFIG) -> "Config":
@@ -36,6 +37,7 @@ class Config:
             sources=data.get("sources", {}),
             preprocessing=data.get("preprocessing", {}),
             features=data.get("features", {}),
+            generation=data.get("generation", {}),
         )
 
     def ensure_dirs(self) -> None:
