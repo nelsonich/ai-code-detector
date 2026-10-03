@@ -80,6 +80,23 @@ docker compose run --rm app ai-code-detector plot # one stage
 docker compose up notebook                        # JupyterLab on http://localhost:8888
 ```
 
+### Generating AI code
+
+AI solutions are generated for the same tasks the human code solves, in the same languages.
+It calls paid or rate-limited APIs, so it is a separate command, not part of `run`:
+
+```bash
+docker compose run --rm app ai-code-detector load                 # needs tasks.parquet
+docker compose run --rm app ai-code-detector generate --tasks 10  # trial on 10 tasks
+docker compose run --rm app ai-code-detector generate --generators gpt-oss
+docker compose run --rm app ai-code-detector load                 # include the new AI code
+```
+
+Generators, models and limits are in `configs/default.yaml` under `generation`; API keys are
+read from `.env`. Results are appended to `data/raw/generated/<generator>.jsonl`; a rerun
+skips finished jobs, so an interrupted run or an exhausted daily quota just continues later.
+Answers cut by the token limit are rejected, so incomplete code never enters the dataset.
+
 Checks (also run by CI on every pull request):
 
 ```bash

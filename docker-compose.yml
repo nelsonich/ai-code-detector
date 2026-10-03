@@ -4,6 +4,9 @@ services:
     image: ai-code-detector
     volumes:
       - .:/app
+    env_file:
+      - path: .env
+        required: false
     command: ai-code-detector run
 
   notebook:
@@ -11,6 +14,9 @@ services:
     build: .
     volumes:
       - .:/app
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8888:8888"
     command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''

@@ -14,6 +14,47 @@ sources:
     per_language: 300
     max_per_problem: 3
     seed: 42
+  generated:
+    dir: data/raw/generated
+
+generation:
+  output_dir: data/raw/generated
+  max_tokens: 8000
+  # Long lecture texts are cut to keep requests within free-tier per-request token limits;
+  # every cut is recorded on the generated sample.
+  max_statement_chars: 12000
+  styles: [standard, beginner, no_comments]
+  seed: 42
+  generators:
+    claude-sonnet:
+      provider: anthropic
+      model: claude-sonnet-5-5
+      api_key_env: ANTHROPIC_API_KEY
+      effort: low
+    gemini-flash:
+      provider: openai_compatible
+      # Free tier limits requests per model and day (gemini-3.8-flash: 20/day).
+      model: gemini-3.5-flash
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key_env: GEMINI_API_KEY
+      min_interval: 6
+      # Hidden reasoning shares the max_tokens budget and can cut the code short.
+      reasoning_effort: low
+    gpt-oss:
+      provider: openai_compatible
+      model: openai/gpt-oss-120b
+      base_url: https://api.groq.com/openai/v1
+      api_key_env: GROQ_API_KEY
+      min_interval: 2.5
+      reasoning_effort: low
+    qwen:
+      provider: openai_compatible
+      model: qwen/qwen3.8-27b
+      base_url: https://api.groq.com/openai/v1
+      api_key_env: GROQ_API_KEY
+      min_interval: 2.5
+      # Groq's free tier rejects requests whose max_tokens exceeds its output tokens per minute.
+      max_tokens: 4000
 
 preprocessing:
   min_code_chars: 50
