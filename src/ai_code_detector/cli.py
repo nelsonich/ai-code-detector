@@ -19,13 +19,15 @@ def main() -> None:
                         help="generate: number of tasks to use (default: all eligible)")
     parser.add_argument("--generators", default=None,
                         help="generate: comma-separated generator names (default: all configured)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="generate: only report pending jobs, spend and projected cost")
     args = parser.parse_args()
 
     config = Config.load(args.config) if args.config else Config.load()
     config.ensure_dirs()
     if args.stage == "generate":
         names = args.generators.split(",") if args.generators else None
-        generate(config, args.tasks, names)
+        generate(config, args.tasks, names, dry_run=args.dry_run)
         return
     for name in STAGES if args.stage == "run" else [args.stage]:
         print(f"== {name}")

@@ -25,12 +25,20 @@ generation:
   max_statement_chars: 12000
   styles: [standard, beginner, no_comments]
   seed: 42
+  # Every style and every language per task, to balance the classes; other datasets
+  # (CodeNet: ~500 tasks) get one solution per task and generator.
+  exhaustive_datasets: [webdproc, progpedia]
+  # Prices are USD per million tokens; a generator stops once its estimated spend reaches
+  # budget_usd. Budgets stay below the account balances to absorb estimation error.
   generators:
     claude-sonnet:
       provider: anthropic
       model: claude-sonnet-5-5
       api_key_env: ANTHROPIC_API_KEY
       effort: low
+      price_input: 2.00
+      price_output: 10.00
+      budget_usd: 12.00
     gemini-flash:
       provider: openai_compatible
       # Needs the paid tier: the free tier allows only 20 requests per model and day.
@@ -40,12 +48,16 @@ generation:
       min_interval: 1
       # Hidden reasoning shares the max_tokens budget and can cut the code short.
       reasoning_effort: low
+      price_input: 1.50
+      price_output: 9.00
+      budget_usd: 4.50
     gpt-oss:
       provider: openai_compatible
       model: openai/gpt-oss-120b
       base_url: https://api.groq.com/openai/v1
       api_key_env: GROQ_API_KEY
-      min_interval: 2.5
+      # Free tier: 1000 requests per day and 8000 tokens per minute (~5 solutions a minute).
+      min_interval: 12
       reasoning_effort: low
     # Qwen on Groq's free tier allows only 1000 output tokens per minute, too few for code.
     deepseek:
@@ -55,6 +67,10 @@ generation:
       api_key_env: DEEPSEEK_API_KEY
       # Its reasoning shares the token budget; 8000 cut some answers short.
       max_tokens: 16000
+      # Peak-hour prices, so the estimate stays on the safe side.
+      price_input: 0.30
+      price_output: 1.20
+      budget_usd: 4.50
 
 preprocessing:
   min_code_chars: 50
