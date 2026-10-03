@@ -7,5 +7,6 @@
 from pathlib import Path
 
 INTERIM_RECORDS = Path("records.parquet")
+INTERIM_TASKS = Path("tasks.parquet")
 PROCESSED_CLEAN = Path("clean.parquet")
 PROCESSED_FEATURES = Path("features.parquet")

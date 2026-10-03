@@ -9,7 +9,7 @@ from ai_code_detector.data.sources import (
     ProgpediaSource,
     WebdprocSource,
 )
-from ai_code_detector.pipeline import INTERIM_RECORDS, PROCESSED_CLEAN
+from ai_code_detector.pipeline import INTERIM_RECORDS, INTERIM_TASKS, PROCESSED_CLEAN
 
 
 def build_sources(config: Config) -> list[DataSource]:
@@ -32,12 +32,23 @@ def build_sources(config: Config) -> list[DataSource]:
 
 
 def load(config: Config) -> None:
-    """Read all sources into ``data/interim``."""
+    """Read records and tasks of all sources into ``data/interim``."""
     sources = build_sources(config)
-    frame = DatasetLoader(sources).load()
-    DatasetLoader.save(frame, config.interim_dir / INTERIM_RECORDS)
-    counts = frame.groupby(["dataset", "label"]).size().to_dict() if len(frame) else {}
-    print(f"loaded {len(frame)} records from {[s.name for s in sources]}: {counts}")
+    loader = DatasetLoader(sources)
+    records, tasks = loader.load(), loader.load_tasks()
+    DatasetLoader.save(records, config.interim_dir / INTERIM_RECORDS)
+    DatasetLoader.save(tasks, config.interim_dir / INTERIM_TASKS)
+
+    print(f"sources: {[s.name for s in sources]}")
+    if records.empty:
+        print("loaded 0 records")
+        return
+    print(f"records: {records.groupby(['dataset', 'label']).size().to_dict()}")
+    print(f"tasks: {tasks.groupby('dataset').size().to_dict()}")
+    orphans = records.loc[~records["task_id"].isin(tasks["task_id"])]
+    if not orphans.empty:
+        by_kind = orphans.groupby(["dataset", "source"]).size().to_dict()
+        print(f"warning: {len(orphans)} records have no task text: {by_kind}")
 
 
 def preprocess(config: Config) -> None:
