@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind
+from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind, TaskRecord
 from ai_code_detector.data.sources.base import DataSource
 
 EXTENSIONS = {".java": "java", ".py": "python", ".c": "c", ".cpp": "cpp"}
@@ -54,12 +54,17 @@ class ProgpediaSource(DataSource):
         for key in sorted(best):
             yield self._to_record(best[key])
 
-    def statements(self) -> dict[str, str]:
-        """Return the problem statement (Markdown) of every exercise keyed by task id."""
-        return {
-            self._task_id(path.parent.name): path.read_text(encoding="utf-8")
-            for path in sorted(self.root.glob("*/statement.md"))
-        }
+    def tasks(self) -> Iterator[TaskRecord]:
+        """Yield every exercise with its Markdown statement; its first line is the title."""
+        for path in sorted(self.root.glob("*/statement.md")):
+            statement = path.read_text(encoding="utf-8")
+            yield TaskRecord(
+                task_id=self._task_id(path.parent.name),
+                dataset=self.name,
+                title=statement.splitlines()[0].strip() if statement else None,
+                statement=statement,
+                statement_format="markdown",
+            )
 
     def _scan(self) -> Iterator[_Submission]:
         for path in self.root.glob("*/*/*/*"):

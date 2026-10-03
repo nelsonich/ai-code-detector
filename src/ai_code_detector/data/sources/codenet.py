@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind
+from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind, TaskRecord
 from ai_code_detector.data.sources.base import DataSource
 
 LANGUAGES = {"C#": "csharp", "PHP": "php", "JavaScript": "javascript"}
@@ -65,12 +65,20 @@ class CodenetSource(DataSource):
         meta = meta.groupby(["language", "problem_id"]).head(self.max_per_problem)
         return meta.groupby("language").head(self.per_language).reset_index(drop=True)
 
-    def statements(self) -> dict[str, str]:
-        """Return the HTML description of every problem keyed by task id."""
-        return {
-            self._task_id(path.stem): path.read_text(encoding="utf-8", errors="replace")
-            for path in sorted((self.root / "problem_descriptions").glob("*.html"))
-        }
+    def tasks(self) -> Iterator[TaskRecord]:
+        """Yield the problems used by the sample, with their HTML descriptions."""
+        problems = pd.read_csv(self.root / "metadata" / "problem_list.csv").set_index("id")
+        for problem_id in sorted(self.sample()["problem_id"].unique()):
+            problem = problems.loc[problem_id]
+            path = self.root / "problem_descriptions" / f"{problem_id}.html"
+            yield TaskRecord(
+                task_id=self._task_id(problem_id),
+                dataset=self.name,
+                title=problem["name"],
+                statement=path.read_text(encoding="utf-8", errors="replace"),
+                statement_format="html",
+                extra={"judge": problem["dataset"]},
+            )
 
     def _candidates(self) -> pd.DataFrame:
         frames = []

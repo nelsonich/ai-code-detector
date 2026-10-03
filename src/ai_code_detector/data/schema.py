@@ -61,7 +61,25 @@ class CodeRecord:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class TaskRecord:
+    """A task that code samples solve; AI solutions are generated from its statement.
+
+    ``language`` is set when the task fixes one language (e.g. a challenge) and is
+    ``None`` when solutions may use several (e.g. a lesson with HTML, CSS and JS).
+    """
+
+    task_id: str
+    dataset: str
+    title: str | None
+    statement: str
+    statement_format: str
+    language: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
 RECORD_COLUMNS = [f.name for f in CodeRecord.__dataclass_fields__.values()]
+TASK_COLUMNS = [f.name for f in TaskRecord.__dataclass_fields__.values()]
 
 
 def records_to_frame(records: list[CodeRecord]) -> pd.DataFrame:
@@ -72,3 +90,8 @@ def records_to_frame(records: list[CodeRecord]) -> pd.DataFrame:
         for r in records
     ]
     return pd.DataFrame(rows, columns=RECORD_COLUMNS)
+
+
+def tasks_to_frame(tasks: list[TaskRecord]) -> pd.DataFrame:
+    """Convert tasks into a DataFrame."""
+    return pd.DataFrame([asdict(t) for t in tasks], columns=TASK_COLUMNS)

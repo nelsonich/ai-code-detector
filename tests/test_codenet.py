@@ -37,6 +37,11 @@ def test_samples_accepted_unique_authors_with_limits(tmp_path):
     assert {r.language for r in records} == {"php", "csharp"}
     assert all(r.label_status == "verified" and r.created_at.year == 2017 for r in records)
 
+    [task] = CodenetSource(tmp_path, per_language=10, max_per_problem=2).tasks()
+    assert task.task_id == "codenet:p00001"
+    assert task.title == "Sum"
+    assert task.statement == "<p>Add numbers</p>"
+
 
 def test_missing_sampled_file_raises(tmp_path):
     row = _submission(tmp_path, "s1", "p00001", "u1", "PHP", "php")
