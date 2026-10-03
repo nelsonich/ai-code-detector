@@ -33,11 +33,11 @@ generation:
       effort: low
     gemini-flash:
       provider: openai_compatible
-      # Free tier limits requests per model and day (gemini-3.8-flash: 20/day).
+      # Needs the paid tier: the free tier allows only 20 requests per model and day.
       model: gemini-3.5-flash
       base_url: https://generativelanguage.googleapis.com/v1beta/openai/
       api_key_env: GEMINI_API_KEY
-      min_interval: 6
+      min_interval: 1
       # Hidden reasoning shares the max_tokens budget and can cut the code short.
       reasoning_effort: low
     gpt-oss:
