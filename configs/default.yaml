@@ -15,6 +15,11 @@ sources:
     per_language: 300
     max_per_problem: 3
     seed: 42
+  droid:
+    dir: data/raw/droid
+    # Per language, origin (competitive programming / GitHub) and label.
+    per_group: 300
+    seed: 42
   generated:
     dir: data/raw/generated
 

@@ -14,7 +14,8 @@ def _frame(n=60, seed=0):
             rows.append({
                 "label": label, "label_status": status,
                 "language": "python" if i % 2 else "java",
-                "dataset": f"{label}-{status}", "generator": "g" if label == "ai" else "none",
+                "dataset": f"{label}-{status}", "origin": "a" if i < n // 2 else "b",
+                "generator": "g" if label == "ai" else "none",
                 "separating": shift + rng.normal(0, 0.1),
                 "noise": rng.normal(0, 1),
             })
@@ -39,6 +40,22 @@ def test_separation_by_language_skips_groups_with_too_few_samples():
     assert set(table.columns) == {"java", "python"}
     assert (table.loc["separating"] > 0.99).all()
     assert CodeAnalyzer(_frame()).separation_by("language", min_per_class=31).empty
+
+
+def test_robust_features_rank_a_source_artifact_below_a_real_difference():
+    frame = _frame()
+    is_ai = frame["label"] == "ai"
+    # Higher in AI code within origin "a", higher in human code within origin "b".
+    flip = np.where(frame["origin"] == "a", 1.0, -1.0)
+    frame["artifact"] = np.where(is_ai, flip, -flip) + np.random.default_rng(1).normal(
+        0, 0.1, len(frame))
+    analyzer = CodeAnalyzer(frame)
+    cells = analyzer.separation_by_origin(min_per_class=10)
+    assert set(cells.columns) == {"java/a", "java/b", "python/a", "python/b"}
+    table = analyzer.robust_features(min_per_class=10)
+    assert table.index[0] == "separating"
+    assert table.loc["separating", "agree"] == 1.0 and table.loc["separating", "weakest"] > 0.9
+    assert table.loc["artifact", "weakest"] < -0.9
 
 
 def test_trust_groups_place_unverified_between_the_classes():

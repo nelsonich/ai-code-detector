@@ -43,6 +43,7 @@ class GeneratedSource(DataSource):
                 source=SourceKind.GENERATED,
                 task_id=row["task_id"],
                 dataset=self.name,
+                origin=row["task_id"].split(":")[0],
                 author_id=f"{self.name}:{row['generator']}",
                 created_at=datetime.fromisoformat(row["created_at"]),
                 generator=row["generator"],

@@ -10,7 +10,7 @@ _WHITESPACE = re.compile(r"\s+")
 _PRE = re.compile(r"<pre[^>]*>(.*?)</pre>", re.DOTALL | re.IGNORECASE)
 _TAG = re.compile(r"<[^>]+>")
 
-CATEGORY_COLUMNS = ("language", "label", "label_status", "source", "dataset",
+CATEGORY_COLUMNS = ("language", "label", "label_status", "source", "dataset", "origin",
                     "generator", "prompt_style")
 # Human code has no generator or prompt style; "none" makes that explicit for grouping.
 NOT_APPLICABLE = {"generator": "none", "prompt_style": "none"}
@@ -138,6 +138,7 @@ class CodePreprocessor:
         for column, value in NOT_APPLICABLE.items():
             out[column] = out[column].fillna(value)
         out["author_id"] = out["author_id"].fillna("unknown")
+        out["origin"] = out["origin"].fillna(out["dataset"])
         return out
 
     @staticmethod
