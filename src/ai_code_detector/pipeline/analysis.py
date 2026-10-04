@@ -1,5 +1,7 @@
 """Analysis stages: extract features, summarise them and draw figures."""
 
+import pandas as pd
+
 from ai_code_detector.analysis.analyzer import CodeAnalyzer
 from ai_code_detector.config import Config
 from ai_code_detector.data.loader import DatasetLoader
@@ -17,10 +19,19 @@ def features(config: Config) -> None:
 
 
 def analyze(config: Config) -> None:
-    """Print the analytical summaries."""
+    """Export every analysis table to ``reports/tables`` and print the key results."""
     analyzer = CodeAnalyzer(DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES))
-    print(analyzer.summary_by_label())
-    print(analyzer.label_correlation())
+    paths = analyzer.export(config.tables_dir)
+
+    with pd.option_context("display.width", 160, "display.max_columns", 20):
+        print("Features that separate AI from human code best (verified labels):")
+        print(analyzer.class_separation().head(10)[
+            ["median_ai", "median_human", "auc", "cohens_d"]].round(3))
+        print("\nWhere unverified student code lies (medians):")
+        print(analyzer.trust_groups().round(3))
+    _, variance = analyzer.pca()
+    print(f"\nPCA explained variance: {[round(float(v), 3) for v in variance]}")
+    print(f"tables written to {config.tables_dir}: {sorted(p.name for p in paths.values())}")
 
 
 def plot(config: Config) -> None:
