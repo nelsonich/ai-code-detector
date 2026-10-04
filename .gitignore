@@ -13,4 +13,5 @@ data/raw/*
 data/interim/*
 data/processed/*
 reports/figures/*
+reports/tables/*
 !**/.gitkeep

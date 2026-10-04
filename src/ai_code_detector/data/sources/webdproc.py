@@ -11,11 +11,14 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from ai_code_detector.data.schema import CodeRecord, Label, LabelStatus, SourceKind, TaskRecord
 from ai_code_detector.data.sources.base import DataSource
 
 DATE_FORMATS = ("%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S")
+# The platform stores local time (app timezone); other sources use UTC.
+PLATFORM_TZ = ZoneInfo("Asia/Yerevan")
 # Challenge language modes that map to one language; "web" mixes HTML, CSS and JS.
 CHALLENGE_LANGUAGES = {"javascript", "python", "cpp", "csharp", "php", "java"}
 STATEMENT_LOCALES = ("en", "am", "ru")
@@ -31,10 +34,11 @@ def _parse_date(value: str | None) -> datetime | None:
         return None
     for fmt in DATE_FORMATS:
         try:
-            return datetime.strptime(value, fmt)
+            return datetime.strptime(value, fmt).replace(tzinfo=PLATFORM_TZ)
         except ValueError:
             continue
-    return datetime.fromisoformat(value)
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=PLATFORM_TZ)
 
 
 class WebdprocSource(DataSource):

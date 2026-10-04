@@ -18,6 +18,7 @@ class Config:
     interim_dir: Path
     processed_dir: Path
     figures_dir: Path
+    tables_dir: Path
     sources: dict[str, Any] = field(default_factory=dict)
     preprocessing: dict[str, Any] = field(default_factory=dict)
     features: dict[str, Any] = field(default_factory=dict)
@@ -34,6 +35,7 @@ class Config:
             interim_dir=PROJECT_ROOT / paths["interim"],
             processed_dir=PROJECT_ROOT / paths["processed"],
             figures_dir=PROJECT_ROOT / paths["figures"],
+            tables_dir=PROJECT_ROOT / paths["tables"],
             sources=data.get("sources", {}),
             preprocessing=data.get("preprocessing", {}),
             features=data.get("features", {}),
@@ -42,5 +44,6 @@ class Config:
 
     def ensure_dirs(self) -> None:
         """Create all output directories if they are missing."""
-        for directory in (self.interim_dir, self.processed_dir, self.figures_dir):
+        for directory in (self.interim_dir, self.processed_dir, self.figures_dir,
+                          self.tables_dir):
             directory.mkdir(parents=True, exist_ok=True)

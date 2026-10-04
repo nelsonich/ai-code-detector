@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ai_code_detector.data.sources.webdproc import WebdprocSource
 
@@ -20,7 +21,7 @@ def test_loads_samples_from_navicat_export(tmp_path):
 
     assert record.record_id == "webdproc:lesson:1:css"
     assert record.task_id == "webdproc:lesson:7"
-    assert record.created_at == datetime(2026, 3, 5, 9, 7, 1)
+    assert record.created_at == datetime(2026, 3, 5, 9, 7, 1, tzinfo=ZoneInfo("Asia/Yerevan"))
     assert record.label_status == "unverified"
     assert record.extra == {"meta_course_id": 1}
 

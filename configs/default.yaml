@@ -3,6 +3,7 @@ paths:
   interim: data/interim
   processed: data/processed
   figures: reports/figures
+  tables: reports/tables
 
 sources:
   webdproc:
@@ -78,6 +79,8 @@ generation:
 
 preprocessing:
   min_code_chars: 50
+  # Code at least this similar to a code example of its own lecture counts as copied.
+  example_similarity: 0.9
   languages: [html, css, javascript, python, c, cpp, csharp, php, java]
 
 features:
