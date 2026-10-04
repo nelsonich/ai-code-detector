@@ -82,6 +82,16 @@ generation:
       price_output: 1.20
       budget_usd: 4.50
 
+features:
+  # Optional, slow stage (ai-code-detector lm-score): code language-model signals on a sample.
+  language_model:
+    observer: Qwen/Qwen2.5-Coder-0.5B
+    performer: Qwen/Qwen2.5-Coder-0.5B-Instruct
+    max_tokens: 512
+    per_group: 100
+    seed: 42
+    threads: null
+
 preprocessing:
   min_code_chars: 50
   # Code at least this similar to a code example of its own lecture counts as copied.

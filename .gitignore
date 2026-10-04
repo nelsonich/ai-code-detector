@@ -12,6 +12,7 @@ __pycache__/
 data/raw/*
 data/interim/*
 data/processed/*
+data/hf-cache/
 reports/figures/*
 reports/tables/*
 !**/.gitkeep

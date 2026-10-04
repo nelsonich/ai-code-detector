@@ -7,6 +7,7 @@ from ai_code_detector.config import Config
 from ai_code_detector.data.loader import DatasetLoader
 from ai_code_detector.features.extractor import FeatureExtractor
 from ai_code_detector.pipeline import PROCESSED_CLEAN, PROCESSED_FEATURES
+from ai_code_detector.pipeline.language_model import scored_features
 from ai_code_detector.visualization.visualizer import Visualizer
 
 
@@ -32,6 +33,13 @@ def analyze(config: Config) -> None:
     _, variance = analyzer.pca()
     print(f"\nPCA explained variance: {[round(float(v), 3) for v in variance]}")
     print(f"tables written to {config.tables_dir}: {sorted(p.name for p in paths.values())}")
+
+    scored = scored_features(config)
+    if scored is not None:
+        robust = CodeAnalyzer(scored).robust_features()
+        robust.to_csv(config.tables_dir / "robust_features_lm.csv")
+        print(f"\nRobustness on the {len(scored)} language-model scored records:")
+        print(robust.round(2).head(12))
 
 
 def plot(config: Config, top_features: int = 6) -> None:

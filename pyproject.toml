@@ -22,6 +22,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Code language-model signals (ai-code-detector lm-score); CPU wheels are enough.
+lm = [
+    "torch>=2.4",
+    "transformers>=4.45",
+]
 dev = [
     "ruff>=0.6",
     "pytest>=8.3",
