@@ -25,8 +25,10 @@ GROUP_COLORS = {
 LABEL_COLORS = {"human": GROUP_COLORS["human (verified)"], "ai": GROUP_COLORS["ai"]}
 SOURCE_COLORS = {"progpedia": GROUP_COLORS["human (verified)"],
                  "codenet": GROUP_COLORS["human (verified)"],
+                 "droid human": GROUP_COLORS["human (verified)"],
                  "webdproc": GROUP_COLORS["human (unverified)"],
-                 "generated": GROUP_COLORS["ai"]}
+                 "generated": GROUP_COLORS["ai"],
+                 "droid ai": GROUP_COLORS["ai"]}
 INK, INK_SECONDARY, MUTED = "#0b0b0b", "#52514e", "#898781"
 SURFACE, GRID, AXIS = "#fcfcfb", "#e1e0d9", "#c3c2b7"
 DIVERGING = LinearSegmentedColormap.from_list(
@@ -43,6 +45,12 @@ STYLE = {
     "xtick.color": MUTED, "ytick.color": MUTED, "xtick.labelcolor": INK_SECONDARY,
     "ytick.labelcolor": INK_SECONDARY, "legend.frameon": False,
 }
+
+
+def source_group(frame: pd.DataFrame) -> pd.Series:
+    """Name each row's source dataset, splitting datasets that hold both classes."""
+    dataset = frame["dataset"].astype(str)
+    return dataset.where(dataset != "droid", dataset + " " + frame["label"].astype(str))
 
 
 def trust_group(frame: pd.DataFrame) -> pd.Series:
@@ -131,10 +139,10 @@ class Visualizer:
             "tab indentation": frame["tab_indent_ratio"] > 0,
             "any comment": frame["has_comments"] > 0,
         }
-        shares = pd.DataFrame(habits).groupby(frame["dataset"].astype(str)).mean()
+        shares = pd.DataFrame(habits).groupby(source_group(frame)).mean()
         shares = shares.loc[[d for d in SOURCE_COLORS if d in shares.index]]
         colors = [SOURCE_COLORS[d] for d in shares.index]
-        fig, axes = plt.subplots(1, len(habits), figsize=(12, 3.8), sharey=True)
+        fig, axes = plt.subplots(1, len(habits), figsize=(15, 4), sharey=True)
         for ax, habit in zip(axes, habits):
             ax.bar(shares.index, shares[habit], color=colors, width=0.7)
             for i, value in enumerate(shares[habit]):
@@ -143,6 +151,7 @@ class Visualizer:
             ax.set_title(habit, fontsize=10)
             ax.set_ylim(0, 1.05)
             ax.grid(axis="x", visible=False)
+            ax.tick_params(axis="x", labelrotation=30)
             ax.yaxis.set_major_formatter(PercentFormatter(1.0))
         axes[0].set_ylabel("share of samples")
         fig.suptitle("Formatting habits by source: verified human (blue), unverified "
@@ -192,6 +201,26 @@ class Visualizer:
         fig.colorbar(image, ax=ax, shrink=0.7).set_label("Spearman correlation")
         ax.set_title("Correlation between features")
         return self._save(fig, "07_feature_correlation.png")
+
+    def robustness(self, cells: pd.DataFrame, order: list[str],
+                   name: str = "08_feature_robustness.png", title: str | None = None) -> Path:
+        """Draw a heatmap of signed separation per feature in every language and origin."""
+        data = cells.loc[order]
+        fig, ax = plt.subplots(figsize=(0.55 * len(data.columns) + 4, 0.34 * len(data) + 2))
+        image = ax.imshow(data.to_numpy(), cmap=DIVERGING, vmin=-1, vmax=1, aspect="auto")
+        ax.set_xticks(range(len(data.columns)), data.columns, rotation=60, ha="right",
+                      fontsize=8)
+        ax.set_yticks(range(len(data.index)), data.index, fontsize=8)
+        ax.grid(False)
+        for (i, j), value in np.ndenumerate(data.to_numpy()):
+            if abs(value) >= 0.3:
+                ax.text(j, i, f"{value:.1f}", ha="center", va="center",
+                        fontsize=6, color="white" if abs(value) >= 0.6 else INK)
+        bar = fig.colorbar(image, ax=ax, shrink=0.5)
+        bar.set_label("separation (red: higher in AI, blue: higher in human)")
+        ax.set_title(title or "Does each feature point the same way in every population? "
+                     "(rows: most consistent first)")
+        return self._save(fig, name)
 
     def _save(self, fig: plt.Figure, name: str) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
