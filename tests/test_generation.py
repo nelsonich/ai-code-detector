@@ -140,6 +140,19 @@ def test_exhaustive_plan_covers_every_style_and_language_and_keeps_default_jobs(
     assert {j.job_id for j in default} <= {j.job_id for j in full}
 
 
+def test_generator_stops_at_result_cap_counting_earlier_runs(tmp_path):
+    records, tasks = _tables()
+    generator = _FakeGenerator("free", answer="```python\nprint(1)\n```")
+    jobs = plan_jobs(records, tasks, ["free"], list(PromptStyle), exhaustive_datasets=["p"])
+
+    first = GenerationRunner({"free": generator}, tasks, tmp_path, 1000,
+                             max_results={"free": 2}).run(jobs)
+    assert first["free"]["written"] == 2
+    second = GenerationRunner({"free": generator}, tasks, tmp_path, 1000,
+                              max_results={"free": 3}).run(jobs)
+    assert second["free"]["written"] == 1 and generator.calls == 3
+
+
 def test_plan_uses_human_languages_and_skips_tasks_without_statement():
     records, tasks = _tables()
     styles = list(PromptStyle)

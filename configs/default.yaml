@@ -56,9 +56,12 @@ generation:
       model: openai/gpt-oss-120b
       base_url: https://api.groq.com/openai/v1
       api_key_env: GROQ_API_KEY
-      # Free tier: 1000 requests per day and 8000 tokens per minute (~5 solutions a minute).
+      # Free tier: 1000 requests per day and 8000 tokens per minute (~5 solutions a minute),
+      # and about 200k tokens per day (~160 solutions). The cap keeps it near Gemini's
+      # share instead of taking six days to cover the full grid before the deadline.
       min_interval: 12
       reasoning_effort: low
+      max_results: 530
     # Qwen on Groq's free tier allows only 1000 output tokens per minute, too few for code.
     deepseek:
       provider: openai_compatible

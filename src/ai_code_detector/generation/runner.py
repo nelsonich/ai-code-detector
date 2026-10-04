@@ -141,13 +141,15 @@ class GenerationRunner:
 
     def __init__(self, generators: dict[str, Generator], tasks: pd.DataFrame,
                  output_dir: Path, max_statement_chars: int,
-                 pricing: dict[str, Pricing] | None = None) -> None:
-        """Keep generators, the task texts, where to write results and their prices."""
+                 pricing: dict[str, Pricing] | None = None,
+                 max_results: dict[str, int] | None = None) -> None:
+        """Keep generators, task texts, output location, prices and result caps."""
         self.generators = generators
         self.tasks = tasks.set_index("task_id")
         self.output_dir = output_dir
         self.max_statement_chars = max_statement_chars
         self.pricing = pricing or {}
+        self.max_results = max_results or {}
 
     def done_job_ids(self) -> set[str]:
         """Ids of jobs already written by any earlier run."""
@@ -163,29 +165,35 @@ class GenerationRunner:
         rows = read_results(self.output_dir)
         done = {row["job_id"] for row in rows}
         spent = spend_by_generator(rows, self.pricing)
+        existing = {name: sum(row["generator"] == name for row in rows)
+                    for name in self.generators}
         queues: dict[str, list[Job]] = {name: [] for name in self.generators}
-        for job in jobs:
+        # A generator that only gets through part of its jobs (quota, cap) should still
+        # cover every dataset and language, so jobs run in a fixed pseudo-random order.
+        for job in sorted(jobs, key=lambda j: hashlib.md5(j.job_id.encode()).hexdigest()):
             queues[job.generator].append(job)
 
         with ThreadPoolExecutor(max_workers=max(len(queues), 1)) as pool:
             futures = {
                 name: pool.submit(self._run_generator, name, queue, done,
-                                  spent.get(name, 0.0))
+                                  spent.get(name, 0.0), existing[name])
                 for name, queue in queues.items()
             }
             return {name: future.result() for name, future in futures.items()}
 
     def _run_generator(self, name: str, jobs: list[Job], done: set[str],
-                       spent: float) -> dict[str, float]:
+                       spent: float, existing: int) -> dict[str, float]:
         counts = {"done_before": 0, "written": 0, "failed": 0, "skipped": 0}
         price = self.pricing.get(name, Pricing())
+        cap = self.max_results.get(name)
         failures_in_row = 0
         for job in jobs:
             if job.job_id in done:
                 counts["done_before"] += 1
                 continue
             over_budget = price.budget_usd is not None and spent >= price.budget_usd
-            if failures_in_row >= MAX_CONSECUTIVE_FAILURES or over_budget:
+            at_cap = cap is not None and existing + counts["written"] >= cap
+            if failures_in_row >= MAX_CONSECUTIVE_FAILURES or over_budget or at_cap:
                 counts["skipped"] += 1
                 continue
             try:
