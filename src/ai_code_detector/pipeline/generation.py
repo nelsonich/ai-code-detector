@@ -57,8 +57,10 @@ def generate(config: Config, limit_tasks: int | None, generator_names: list[str]
         for name in names
     }
     tasks = DatasetLoader.read(config.interim_dir / INTERIM_TASKS)
+    caps = {name: int(entry["max_results"]) for name, entry in settings["generators"].items()
+            if entry.get("max_results") is not None}
     runner = GenerationRunner(generators, tasks, output_dir, settings["max_statement_chars"],
-                              _pricing(settings))
+                              _pricing(settings), caps)
     for name, counts in runner.run(jobs).items():
         print(f"{name}: {counts}")
 
