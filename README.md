@@ -112,5 +112,32 @@ docker compose run --rm app pytest
 | [PROGpedia](https://zenodo.org/records/7449056) | human, verified | student code 2003-2020: Java, Python, C, C++ | CC-BY-4.0 |
 | [Project CodeNet](https://github.com/IBM/Project_CodeNet) | human, verified | online judge code up to 2021: C#, PHP, JavaScript (sampled) | CDLA-Permissive-2.0 |
 
+### Preprocessing
+
+`preprocess` cleans `records.parquet` into `clean.parquet` and writes
+`reports/tables/preprocessing_report.json` (rows removed per step and class, missing
+values before and after, class balance per language). Steps, in order:
+
+1. Normalise code: CRLF to LF, drop a byte order mark (a third of PROGpedia uses CRLF,
+   which would otherwise be a feature of the source, not of the author).
+2. Drop empty or short code (`min_code_chars`).
+3. Keep configured languages.
+4. Drop exact duplicates (ignoring whitespace) within a task, in both classes.
+5. Drop code that copies a code example of its own lesson (`example_similarity`), in both
+   classes: it shows nothing about who wrote it, and the examples may be AI-generated.
+6. Missing values: `generator` and `prompt_style` of human code become `none`, an unknown
+   `author_id` becomes `unknown`; PROGpedia has no dates, so `created_at` stays missing
+   rather than being invented. Dates are timezone-aware (webdproc stores Yerevan time).
+7. Categorical and datetime types.
+
+### Known limitations
+
+- Human HTML and CSS come only from webdproc (2023+), so they are `unverified`; no public
+  pre-AI source with matching web tasks was found.
+- Generators are not equally represented: Gemini stopped when its prepaid credits ran out
+  and gpt-oss is capped by Groq's free daily quota.
+- DeepSeek has no solution for 6 hard CodeNet problems: its reasoning does not finish
+  within 32000 tokens.
+
 Raw data lives in `data/raw/<source>/` and is never committed. Student identifiers are
 salted hashes; no names or e-mails are stored. API keys go into `.env`, which is ignored by git.

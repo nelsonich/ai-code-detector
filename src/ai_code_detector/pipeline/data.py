@@ -1,5 +1,7 @@
 """Data stages: collect every source into one table and clean it."""
 
+import json
+
 from ai_code_detector.config import PROJECT_ROOT, Config
 from ai_code_detector.data.loader import DatasetLoader
 from ai_code_detector.data.preprocessor import CodePreprocessor
@@ -11,6 +13,8 @@ from ai_code_detector.data.sources import (
     WebdprocSource,
 )
 from ai_code_detector.pipeline import INTERIM_RECORDS, INTERIM_TASKS, PROCESSED_CLEAN
+
+PREPROCESSING_REPORT = "preprocessing_report.json"
 
 
 def build_sources(config: Config) -> list[DataSource]:
@@ -55,11 +59,23 @@ def load(config: Config) -> None:
 
 
 def preprocess(config: Config) -> None:
-    """Clean the interim table into ``data/processed``."""
+    """Clean the interim table into ``data/processed`` and write the cleaning report."""
     frame = DatasetLoader.read(config.interim_dir / INTERIM_RECORDS)
-    clean = CodePreprocessor(**config.preprocessing).run(frame)
+    tasks = DatasetLoader.read(config.interim_dir / INTERIM_TASKS)
+    preprocessor = CodePreprocessor(**config.preprocessing)
+    clean = preprocessor.run(frame, tasks)
     DatasetLoader.save(clean, config.processed_dir / PROCESSED_CLEAN)
-    print(f"kept {len(clean)} of {len(frame)} records")
+
+    report = preprocessor.report
+    (config.tables_dir / PREPROCESSING_REPORT).write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"kept {len(clean)} of {report['input_rows']} records")
+    for step in report["steps"]:
+        print(f"  {step['step']}: -{step['removed']} {step['removed_by_label']}"
+              f" -> {step['remaining']}")
+    print(f"  missing before: {report['missing_before']}")
+    print(f"  missing after:  {report['missing_after']}")
+    print(f"report: {config.tables_dir / PREPROCESSING_REPORT}")
 
 
 STAGES = {"load": load, "preprocess": preprocess}
