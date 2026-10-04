@@ -83,14 +83,3 @@ preprocessing:
   example_similarity: 0.9
   languages: [html, css, javascript, python, c, cpp, csharp, php, java]
 
-features:
-  comment_markers:
-    javascript: ["//", "/*"]
-    css: ["/*"]
-    html: ["<!--"]
-    python: ["#"]
-    c: ["//", "/*"]
-    cpp: ["//", "/*"]
-    csharp: ["//", "/*"]
-    php: ["//", "#", "/*"]
-    java: ["//", "/*"]

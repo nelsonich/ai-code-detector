@@ -11,7 +11,7 @@ from ai_code_detector.visualization.visualizer import Visualizer
 def features(config: Config) -> None:
     """Append feature columns to the clean table."""
     frame = DatasetLoader.read(config.processed_dir / PROCESSED_CLEAN)
-    table = FeatureExtractor(config.features["comment_markers"]).transform(frame)
+    table = FeatureExtractor().transform(frame)
     DatasetLoader.save(table, config.processed_dir / PROCESSED_FEATURES)
     print(f"extracted features for {len(table)} records")
 
