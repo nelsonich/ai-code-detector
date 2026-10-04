@@ -41,6 +41,8 @@ def test_comments_block_inline_and_url_not_a_comment():
 def test_comment_natural_language_shares():
     armenian = extract("// Բարև աշխարհ\nlet a = 1;", "javascript")
     assert armenian["comment_armenian_ratio"] == 1.0 and armenian["comment_cyrillic_ratio"] == 0
+    punctuated = extract("// Բարև, աշխարհ՝ ողջույն։\nlet a = 1;", "javascript")
+    assert punctuated["comment_armenian_ratio"] == 1.0
     russian = extract("# привет world\nx = 1", "python")
     assert russian["comment_cyrillic_ratio"] == pytest.approx(6 / 11)
     html = extract("<!-- note -->\n<p>Hi</p>", "html")

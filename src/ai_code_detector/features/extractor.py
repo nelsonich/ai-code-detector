@@ -8,7 +8,7 @@ import pandas as pd
 
 from ai_code_detector.features import syntax
 
-_ARMENIAN = re.compile(r"[Ա-և]")
+_ARMENIAN = re.compile(r"[Ա-Ֆա-և]")
 _CYRILLIC = re.compile(r"[Ѐ-ӿ]")
 _LETTER = re.compile(r"[^\W\d_]")
 _SNAKE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
