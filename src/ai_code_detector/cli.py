@@ -3,7 +3,7 @@
 import argparse
 
 from ai_code_detector.config import Config
-from ai_code_detector.pipeline import analysis, data
+from ai_code_detector.pipeline import analysis, data, language_model
 from ai_code_detector.pipeline.generation import generate
 
 STAGES = data.STAGES | analysis.STAGES
@@ -12,8 +12,9 @@ STAGES = data.STAGES | analysis.STAGES
 def main() -> None:
     """Parse the command line and run the requested stage(s)."""
     parser = argparse.ArgumentParser(prog="ai-code-detector")
-    parser.add_argument("stage", choices=[*STAGES, "run", "generate"],
-                        help="'run' executes every stage; 'generate' calls AI APIs separately")
+    parser.add_argument("stage", choices=[*STAGES, "run", "generate", "lm-score"],
+                        help="'run' executes every stage; 'generate' (AI APIs) and 'lm-score' "
+                             "(slow, CPU) run separately")
     parser.add_argument("--config", default=None, help="path to a YAML config")
     parser.add_argument("--tasks", type=int, default=None,
                         help="generate: number of tasks to use (default: all eligible)")
@@ -25,6 +26,9 @@ def main() -> None:
 
     config = Config.load(args.config) if args.config else Config.load()
     config.ensure_dirs()
+    if args.stage == "lm-score":
+        language_model.score(config)
+        return
     if args.stage == "generate":
         names = args.generators.split(",") if args.generators else None
         generate(config, args.tasks, names, dry_run=args.dry_run)
