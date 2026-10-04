@@ -36,7 +36,7 @@ git clone git@github.com:nelsonich/ai-code-detector.git
 cd ai-code-detector
 docker compose build
 docker compose run --rm app pytest      # all tests must pass
-./scripts/download_data.sh              # PROGpedia (~70 MB) and CodeNet (~8.3 GB), resumable
+./scripts/download_data.sh              # PROGpedia (~70 MB), CodeNet (~8.3 GB), Droid (~65 MB)
 docker compose run --rm app             # full pipeline: load -> preprocess -> features -> analyze -> plot
 ```
 
@@ -111,6 +111,11 @@ docker compose run --rm app pytest
 | webdproc | human, unverified | student code 2023-2026 (private export) | private |
 | [PROGpedia](https://zenodo.org/records/7449056) | human, verified | student code 2003-2020: Java, Python, C, C++ | CC-BY-4.0 |
 | [Project CodeNet](https://github.com/IBM/Project_CodeNet) | human, verified | online judge code up to 2021: C#, PHP, JavaScript (sampled) | CDLA-Permissive-2.0 |
+| [DroidCollection](https://huggingface.co/datasets/project-droid/DroidCollection) | human and AI, verified | test split, sampled: competitive programming and GitHub code, 7 languages, 43 generators | see dataset card |
+
+Every record has an `origin`: the population it comes from (a site, or the tasks AI code
+was generated for). Human and AI code with the same origin are directly comparable;
+`robust_features.csv` keeps only differences that hold inside every language and origin.
 
 ### Preprocessing
 

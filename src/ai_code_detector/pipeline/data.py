@@ -8,6 +8,7 @@ from ai_code_detector.data.preprocessor import CodePreprocessor
 from ai_code_detector.data.sources import (
     CodenetSource,
     DataSource,
+    DroidSource,
     GeneratedSource,
     ProgpediaSource,
     WebdprocSource,
@@ -33,6 +34,10 @@ def build_sources(config: Config) -> list[DataSource]:
             max_per_problem=codenet["max_per_problem"],
             seed=codenet["seed"],
         ))
+    droid = settings["droid"]
+    if (PROJECT_ROOT / droid["dir"]).exists():
+        sources.append(DroidSource(PROJECT_ROOT / droid["dir"],
+                                   per_group=droid["per_group"], seed=droid["seed"]))
     if (PROJECT_ROOT / settings["generated"]["dir"]).exists():
         sources.append(GeneratedSource(PROJECT_ROOT / settings["generated"]["dir"]))
     return sources

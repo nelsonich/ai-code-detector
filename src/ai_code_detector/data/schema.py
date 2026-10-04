@@ -43,7 +43,9 @@ class CodeRecord:
 
     ``task_id`` links a sample to the task it solves. It is required for grouping
     train/test splits by task, so a model never sees solutions of the same task
-    in both splits.
+    in both splits. ``origin`` names the population a sample belongs to (a site, a
+    platform, the tasks AI code was generated for); human and AI samples with the
+    same origin are directly comparable. It defaults to ``dataset``.
     """
 
     record_id: str
@@ -54,6 +56,7 @@ class CodeRecord:
     source: SourceKind
     task_id: str
     dataset: str
+    origin: str | None = None
     author_id: str | None = None
     created_at: datetime | None = None
     generator: str | None = None

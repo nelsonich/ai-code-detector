@@ -10,6 +10,7 @@ PROGPEDIA_URL="https://zenodo.org/records/7449056/files/progpedia.zip?download=1
 CODENET_HOST="codait-cos-dax.s3.us.cloud-object-storage.appdomain.cloud"
 CODENET_BASE="https://$CODENET_HOST/dax-project-codenet/1.0.0"
 CODENET_LANGS=("C#" "PHP" "JavaScript")
+DROID_URL="https://huggingface.co/datasets/project-droid/DroidCollection/resolve/main/data/test-00000-of-00001.parquet"
 
 CURL_RESOLVE=()
 
@@ -95,10 +96,22 @@ codenet() {
     fi
 }
 
+droid() {
+    local dest="$RAW/droid"
+    if [[ -f "$dest/test.parquet" ]]; then
+        echo "Droid: already present"
+        return
+    fi
+    mkdir -p "$dest"
+    echo "Droid: downloading the test split (~65 MB)"
+    download "$DROID_URL" "$dest/test.parquet"
+}
+
 case "${1:-all}" in
     progpedia) progpedia ;;
     codenet) codenet ;;
-    all) progpedia; codenet ;;
-    *) echo "usage: $0 [all|progpedia|codenet]" >&2; exit 2 ;;
+    droid) droid ;;
+    all) progpedia; codenet; droid ;;
+    *) echo "usage: $0 [all|progpedia|codenet|droid]" >&2; exit 2 ;;
 esac
 echo "Done. Data is in $RAW"

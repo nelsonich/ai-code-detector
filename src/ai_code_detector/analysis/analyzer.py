@@ -84,6 +84,39 @@ class CodeAnalyzer:
                 result[group] = self.class_separation(data)["auc"]
         return pd.DataFrame(result)
 
+    def separation_by_origin(self, min_per_class: int = 30) -> pd.DataFrame:
+        """Signed separation ``(auc - 0.5) * 2`` in every language and origin cell.
+
+        Within a cell, human and AI code come from the same population (site, tasks),
+        so a difference there cannot be explained by where the human code came from.
+        Columns are named ``language/origin``.
+        """
+        result = {}
+        for (language, origin), data in self.verified.groupby(["language", "origin"],
+                                                             observed=True):
+            n_ai = int((data["label"] == AI).sum())
+            if min(n_ai, len(data) - n_ai) >= min_per_class:
+                result[f"{language}/{origin}"] = (self.class_separation(data)["auc"] - 0.5) * 2
+        return pd.DataFrame(result)
+
+    def robust_features(self, min_per_class: int = 30, meaningful: float = 0.1) -> pd.DataFrame:
+        """Rank features by how consistently they separate the classes across populations.
+
+        ``median`` is the typical signed separation over cells, ``agree`` the share of
+        cells where the feature points the same way with at least ``meaningful``
+        strength, and ``weakest`` the worst cell in that direction. A feature that
+        reflects AI rather than a data source keeps ``weakest`` above zero everywhere.
+        """
+        cells = self.separation_by_origin(min_per_class)
+        median = cells.median(axis=1)
+        aligned = cells.mul(np.sign(median).replace(0, 1), axis=0)
+        return pd.DataFrame({
+            "cells": cells.notna().sum(axis=1),
+            "median": median,
+            "agree": (aligned >= meaningful).mean(axis=1),
+            "weakest": aligned.min(axis=1),
+        }).sort_values(["weakest", "agree"], ascending=False)
+
     def group_profile(self, by: list[str], statistic: str = "median") -> pd.DataFrame:
         """Compute a statistic of every feature per group, with the group sizes."""
         grouped = self.frame.groupby(by, observed=True)
@@ -137,6 +170,8 @@ class CodeAnalyzer:
             "summary_by_label.csv": self.summary_by_label(),
             "class_separation.csv": self.class_separation(),
             "separation_by_language.csv": self.separation_by("language"),
+            "separation_by_origin.csv": self.separation_by_origin(),
+            "robust_features.csv": self.robust_features(),
             "trust_groups.csv": self.trust_groups(),
             "profile_by_language_label.csv": self.group_profile(["language", "label"]),
             "profile_by_generator.csv": self.group_profile(["generator"]),
