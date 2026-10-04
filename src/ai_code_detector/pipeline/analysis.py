@@ -34,15 +34,25 @@ def analyze(config: Config) -> None:
     print(f"tables written to {config.tables_dir}: {sorted(p.name for p in paths.values())}")
 
 
-def plot(config: Config) -> None:
+def plot(config: Config, top_features: int = 6) -> None:
     """Write all figures to ``reports/figures``."""
     frame = DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES)
     analyzer = CodeAnalyzer(frame)
+    separation = analyzer.class_separation()
+    top = list(separation.index[:top_features])
+    projection, variance = analyzer.pca()
     viz = Visualizer(config.figures_dir)
-    viz.feature_distributions(frame, analyzer.feature_columns[:4])
-    viz.feature_by_language(frame, "comment_line_ratio")
-    viz.correlation_heatmap(analyzer.feature_correlation())
-    print(f"figures written to {config.figures_dir}")
+    paths = [
+        viz.dataset_composition(frame),
+        viz.feature_separation(separation),
+        viz.feature_distributions(frame, top),
+        viz.habits_by_source(frame),
+        viz.separation_by_language(analyzer.separation_by("language").loc[
+            list(separation.index[:12])]),
+        viz.pca_projection(projection, variance),
+        viz.correlation_heatmap(analyzer.feature_correlation()),
+    ]
+    print(f"figures written to {config.figures_dir}: {[p.name for p in paths]}")
 
 
 STAGES = {"features": features, "analyze": analyze, "plot": plot}
