@@ -106,6 +106,7 @@ class CodeAnalyzer:
         cells where the feature points the same way with at least ``meaningful``
         strength, and ``weakest`` the worst cell in that direction. A feature that
         reflects AI rather than a data source keeps ``weakest`` above zero everywhere.
+        Features are ranked by ``agree``, then ``weakest``.
         """
         cells = self.separation_by_origin(min_per_class)
         median = cells.median(axis=1)
@@ -115,7 +116,7 @@ class CodeAnalyzer:
             "median": median,
             "agree": (aligned >= meaningful).mean(axis=1),
             "weakest": aligned.min(axis=1),
-        }).sort_values(["weakest", "agree"], ascending=False)
+        }).sort_values(["agree", "weakest"], ascending=False)
 
     def group_profile(self, by: list[str], statistic: str = "median") -> pd.DataFrame:
         """Compute a statistic of every feature per group, with the group sizes."""

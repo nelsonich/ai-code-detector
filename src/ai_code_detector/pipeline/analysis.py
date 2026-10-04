@@ -59,7 +59,16 @@ def plot(config: Config, top_features: int = 6) -> None:
             list(separation.index[:12])]),
         viz.pca_projection(projection, variance),
         viz.correlation_heatmap(analyzer.feature_correlation()),
+        viz.robustness(analyzer.separation_by_origin(), list(analyzer.robust_features().index)),
     ]
+    scored = scored_features(config)
+    if scored is not None:
+        lm = CodeAnalyzer(scored)
+        paths.append(viz.robustness(
+            lm.separation_by_origin(), list(lm.robust_features().index),
+            name="09_robustness_with_language_model.png",
+            title=f"Style and language-model signals on {len(scored)} scored samples "
+                  "(rows: most consistent first)"))
     print(f"figures written to {config.figures_dir}: {[p.name for p in paths]}")
 
 
