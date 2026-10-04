@@ -68,7 +68,7 @@
 | A2 | `load` читает все источники и пишет `records.parquet` и `tasks.parquet` | Nelson | A1 | 5 окт | обе таблицы создаются в Docker |
 | B1 | `FeatureExtractor`: длина идентификаторов, разнообразие токенов, современные конструкции, язык комментариев | Nelson (взял у Arpi) | B0 | 6 окт | новые признаки с тестами на коротких примерах |
 | A3 | Модуль `generation/`: 3 стиля промпта, клиенты Claude / OpenAI / Gemini, `GeneratedSource`; проба на 10 задачах | Nelson | A2, API-ключи | 6 окт | 10 задач × 3 модели проходят через `load` и попадают в `clean.parquet` |
-| B2 | `CodeAnalyzer`: PCA, сравнение по `dataset` и `label_status`, экспорт таблиц в `reports/` | Arpi | B1 | 7 окт | все методы работают на `features.parquet` |
+| B2 | `CodeAnalyzer`: PCA, сравнение по `dataset` и `label_status`, экспорт таблиц в `reports/` | Nelson (взял у Arpi) | B1 | 7 окт | все методы работают на `features.parquet` |
 | A4 | Полная генерация по всем выбранным задачам | Nelson | A3 | 7 окт | ИИ-код по всем задачам загружается через `load` |
 | A5 | Финальная предобработка: отчёт о пропусках и дубликатах, баланс по языкам, решение по HTML/CSS | Nelson | A4 | 7 окт | `clean.parquet` готов, решение записано в README |
 | B3 | `Visualizer`: гистограммы, PCA scatter, графики по источникам и языкам | Arpi | B2 | 8 окт | `plot` сохраняет все графики в `reports/figures/` |
