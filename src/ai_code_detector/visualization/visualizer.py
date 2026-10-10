@@ -222,6 +222,57 @@ class Visualizer:
                      "(rows: most consistent first)")
         return self._save(fig, name)
 
+    def model_evaluation(self, summary: pd.DataFrame) -> Path:
+        """Draw mean AUC per split for the baseline, all features and no formatting (dots)."""
+        shown = {"length only (baseline)": MUTED, "without formatting": INK_SECONDARY,
+                 "all 24 features": INK}
+        splits = list(summary.columns)
+        fig, ax = plt.subplots(figsize=(9, 3.6))
+        ax.axvline(0.5, color=AXIS, linewidth=1, linestyle="--")
+        ax.text(0.505, len(splits) - 0.45, "0.5 = guessing", color=MUTED, fontsize=8)
+        for row, split in enumerate(reversed(splits)):
+            values = [summary.loc[name, split] for name in shown]
+            ax.plot([min(values), max(values)], [row, row], color=GRID, linewidth=3, zorder=1)
+            for name, color in shown.items():
+                value = summary.loc[name, split]
+                ax.scatter(value, row, s=70, color=color, zorder=2,
+                           label=name if row == 0 else None)
+                ax.text(value, row + 0.22, f"{value:.2f}", ha="center", fontsize=8,
+                        color=INK_SECONDARY)
+        ax.set_yticks(range(len(splits)), list(reversed(splits)))
+        ax.set_ylim(-0.6, len(splits) - 0.3)
+        ax.set_xlim(0.45, 1.0)
+        ax.set_xlabel("AUC of a classifier trained on the features (1.0 = perfect)")
+        ax.grid(axis="y", visible=False)
+        ax.legend(loc="lower right", ncols=3, fontsize=8)
+        ax.set_title("All 24 features together, tested on data the model has not seen")
+        return self._save(fig, "09_model_evaluation.png")
+
+    def group_ablation(self, summary: pd.DataFrame) -> Path:
+        """Draw how much AUC drops when each feature group is removed, per split."""
+        full = summary.loc["all 24 features"]
+        rows = [name for name in summary.index if name.startswith("without ")
+                and name != "without formatting"]
+        drops = (full - summary.loc[rows]).rename(index=lambda n: n.removeprefix("without "))
+        splits = [s for s in drops.columns if s != drops.columns[0]] or list(drops.columns)
+        order = drops[splits[-1]].sort_values().index
+        fig, axes = plt.subplots(1, len(splits), figsize=(5 * len(splits), 3.6), sharey=True)
+        for ax, split in zip(np.atleast_1d(axes), splits):
+            data = drops.loc[order, split]
+            ax.barh(data.index, data, color=INK_SECONDARY, height=0.6)
+            pad = 0.03 * max(data.max(), 0.01)
+            for name, value in data.items():
+                ax.text(max(value, 0) + pad, name, f"{value:+.3f}", va="center", ha="left",
+                        fontsize=8, color=INK_SECONDARY)
+            ax.set_xlim(min(data.min(), 0) - pad, data.max() * 1.25)
+            ax.axvline(0, color=AXIS, linewidth=1)
+            ax.set_title(split, fontsize=10)
+            ax.grid(axis="y", visible=False)
+            ax.set_xlabel("AUC lost without the group")
+        fig.suptitle("Which feature groups the model needs (bigger loss = more important)",
+                     x=0.01, ha="left", fontsize=12, fontweight="bold")
+        return self._save(fig, "10_feature_group_ablation.png")
+
     def _save(self, fig: plt.Figure, name: str) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / name

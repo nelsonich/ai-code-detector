@@ -3,6 +3,7 @@
 import pandas as pd
 
 from ai_code_detector.analysis.analyzer import CodeAnalyzer
+from ai_code_detector.analysis.evaluation import FeatureEvaluator, feature_sets
 from ai_code_detector.config import Config
 from ai_code_detector.data.loader import DatasetLoader
 from ai_code_detector.features.extractor import FeatureExtractor
@@ -42,6 +43,21 @@ def analyze(config: Config) -> None:
         print(robust.round(2).head(12))
 
 
+EVALUATION = "feature_evaluation.csv"
+
+
+def evaluate(config: Config) -> None:
+    """Score the hand-crafted features as one classifier on unseen tasks, languages, origins."""
+    frame = DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES)
+    evaluator = FeatureEvaluator(frame, config.preprocessing["languages"])
+    results = evaluator.run(feature_sets())
+    results.to_csv(config.tables_dir / EVALUATION, index=False)
+    with pd.option_context("display.width", 160):
+        print("Mean AUC of a classifier on the hand-crafted features:")
+        print(FeatureEvaluator.summary(results).round(3))
+    print(f"table written to {config.tables_dir / EVALUATION}")
+
+
 def plot(config: Config, top_features: int = 6) -> None:
     """Write all figures to ``reports/figures``."""
     frame = DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES)
@@ -61,15 +77,20 @@ def plot(config: Config, top_features: int = 6) -> None:
         viz.correlation_heatmap(analyzer.feature_correlation()),
         viz.robustness(analyzer.separation_by_origin(), list(analyzer.robust_features().index)),
     ]
+    evaluation_path = config.tables_dir / EVALUATION
+    if evaluation_path.exists():
+        results = pd.read_csv(evaluation_path)
+        paths.append(viz.model_evaluation(FeatureEvaluator.summary(results)))
+        paths.append(viz.group_ablation(FeatureEvaluator.summary(results)))
     scored = scored_features(config)
     if scored is not None:
         lm = CodeAnalyzer(scored)
         paths.append(viz.robustness(
             lm.separation_by_origin(), list(lm.robust_features().index),
-            name="09_robustness_with_language_model.png",
+            name="11_language_model_signals.png",
             title=f"Style and language-model signals on {len(scored)} scored samples "
                   "(rows: most consistent first)"))
     print(f"figures written to {config.figures_dir}: {[p.name for p in paths]}")
 
 
-STAGES = {"features": features, "analyze": analyze, "plot": plot}
+STAGES = {"features": features, "analyze": analyze, "evaluate": evaluate, "plot": plot}
