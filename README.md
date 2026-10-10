@@ -37,7 +37,7 @@ cd ai-code-detector
 docker compose build
 docker compose run --rm app pytest      # all tests must pass
 ./scripts/download_data.sh              # PROGpedia (~70 MB), CodeNet (~8.3 GB), Droid (~65 MB)
-docker compose run --rm app             # full pipeline: load -> preprocess -> features -> analyze -> plot
+docker compose run --rm app             # full pipeline: load -> preprocess -> features -> analyze -> evaluate -> plot
 ```
 
 `./scripts/download_data.sh progpedia` fetches only PROGpedia, which is enough to start.
@@ -58,13 +58,14 @@ scripts/download_data.sh         fetches public datasets
 src/ai_code_detector/
   cli.py                         command line: runs pipeline stages
   pipeline/data.py               stages load, preprocess
-  pipeline/analysis.py           stages features, analyze, plot
+  pipeline/analysis.py           stages features, analyze, evaluate, plot
   data/schema.py                 CodeRecord: the single record format
   data/sources/                  one module per dataset
   data/loader.py                 DatasetLoader
   data/preprocessor.py           CodePreprocessor
   features/extractor.py          FeatureExtractor (shared with the model)
   analysis/analyzer.py           CodeAnalyzer
+  analysis/evaluation.py         FeatureEvaluator: the features as one classifier on unseen data
   visualization/visualizer.py    Visualizer
 tests/
 ```
