@@ -17,6 +17,17 @@ dependencies = [
     "scikit-learn>=1.5",
     "scipy>=1.13",
     "pyyaml>=6.0",
+    # 0.26 crashes (segfault) while walking trees of these grammars.
+    "tree-sitter>=0.25,<0.26",
+    "tree-sitter-c>=0.24",
+    "tree-sitter-c-sharp>=0.23",
+    "tree-sitter-cpp>=0.23",
+    "tree-sitter-css>=0.25",
+    "tree-sitter-html>=0.23",
+    "tree-sitter-java>=0.23",
+    "tree-sitter-javascript>=0.25",
+    "tree-sitter-php>=0.25",
+    "tree-sitter-python>=0.25",
     "anthropic>=0.60",
     "openai>=1.50",
 ]

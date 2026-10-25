@@ -6,7 +6,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from ai_code_detector.features import syntax
+from ai_code_detector.features import structure, syntax
 
 _SNAKE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
 _CAMEL = re.compile(r"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+$")
@@ -37,7 +37,7 @@ class FeatureExtractor:
         return (self._layout(code, lines)
                 | self._indentation(lines)
                 | self._comments(code, comments, without_comments)
-                | self._structure(program, language)
+                | structure.extract(code, language)
                 | self._identifiers(program, language)
                 | self._constructs(without_comments, language, len(lines)))
 
@@ -82,16 +82,6 @@ class FeatureExtractor:
             "has_comments": float(bool(comments)),
             "comment_line_ratio": commented / n_lines,
             "comment_char_ratio": len(text) / len(code) if code else 0.0,
-        }
-
-    @staticmethod
-    def _structure(program: str, language: str) -> dict[str, float]:
-        depths = syntax.nesting_depths(program, language)
-        code_lines = len(depths) or 1
-        return {
-            "max_nesting_depth": float(max(depths, default=0)),
-            "avg_nesting_depth": float(np.mean(depths)) if depths else 0.0,
-            "decision_points_per_line": syntax.decision_points(program, language) / code_lines,
         }
 
     @staticmethod

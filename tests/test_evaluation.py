@@ -34,7 +34,7 @@ def _frame(n=60, seed=0):
 
 def test_feature_sets_cover_baseline_all_and_one_ablation_per_group():
     sets = feature_sets()
-    assert sets[ALL] == ALL_FEATURES and len(ALL_FEATURES) == len(set(ALL_FEATURES)) == 25
+    assert sets[ALL] == ALL_FEATURES and len(ALL_FEATURES) == len(set(ALL_FEATURES)) == 30
     assert BASELINE in sets and "without indentation" in sets and "without structure" in sets
     assert "tab_indent_ratio" not in sets["without formatting"]
 

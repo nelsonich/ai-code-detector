@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from ai_code_detector.data.schema import RECORD_COLUMNS
-from ai_code_detector.features import syntax
+from ai_code_detector.features import structure, syntax
 from ai_code_detector.features.extractor import FeatureExtractor
 
 extract = FeatureExtractor().extract
@@ -43,29 +43,32 @@ def test_html_comments_are_found():
     assert html["has_comments"] == 1.0
 
 
-def test_nesting_and_decisions_in_braced_code():
-    result = extract("int main() {\n  if (a && b) {\n    x = 1;\n  }\n}", "c")
+def test_structure_counts_blocks_decisions_and_functions():
+    code = "int f(int a, int b) {\n  if (a && b) {\n    return 1;\n  }\n  return 0;\n}"
+    result = extract(code, "c")
+    # statements: if (depth 1), return 1 (depth 2), return 0 (depth 1)
     assert result["max_nesting_depth"] == 2
-    assert result["avg_nesting_depth"] == pytest.approx((0 + 1 + 2 + 1 + 0) / 5)
-    assert result["decision_points_per_line"] == pytest.approx(2 / 5)
+    assert result["avg_nesting_depth"] == pytest.approx(4 / 3)
+    # one function with "if" and "&&": complexity 2 + 1
+    assert result["avg_cyclomatic_complexity"] == 3 and result["max_cyclomatic_complexity"] == 3
+    assert result["decisions_per_statement"] == pytest.approx(2 / 3)
+    assert result["avg_function_lines"] == 6 and result["has_syntax_error"] == 0
 
 
-def test_python_nesting_ignores_indent_width_and_tabs():
-    two = extract("def f(x):\n  if x and y:\n    return 1\n  return 0", "python")
-    tabs = extract("def f(x):\n\tif x and y:\n\t\treturn 1\n\treturn 0", "python")
-    for name in ("max_nesting_depth", "avg_nesting_depth", "decision_points_per_line"):
-        assert two[name] == tabs[name]
-    assert two["max_nesting_depth"] == 2 and two["decision_points_per_line"] == 2 / 4
+def test_structure_ignores_layout_docstrings_and_data_literals():
+    spaces = 'def f(x):\n  """Return 0 if x or y."""\n  if x:\n    return 1\n  return 0'
+    tabs = spaces.replace("    ", "\t\t").replace("  ", "\t")
+    two, tabbed = extract(spaces, "python"), extract(tabs, "python")
+    for name in structure.FEATURES:
+        assert two[name] == tabbed[name]
+    assert two["avg_cyclomatic_complexity"] == 2
+    data = extract('const user = {\n  address: {\n    city: "B"\n  }\n};', "javascript")
+    assert data["max_nesting_depth"] == 0
 
 
-def test_html_nesting_skips_void_tags():
-    assert syntax.nesting_depths("<div>\n<p>Hi<br></p>\n<img src=x>\n</div>", "html") == [
-        0, 1, 1, 1]
-
-
-def test_structure_ignores_braces_and_keywords_in_strings_and_comments():
-    result = extract('let s = "{{ if }}";\n// if (a) {\nlet t = 1;', "javascript")
-    assert result["max_nesting_depth"] == 0 and result["decision_points_per_line"] == 0
+def test_syntax_errors_are_detected():
+    assert extract("for (int i = 0; i < n i++) {", "c")["has_syntax_error"] == 1.0
+    assert extract("<div><p>Hi</p></div>", "html")["has_syntax_error"] == 0.0
 
 
 def test_php_hash_comment_but_not_attribute_or_array_key():
