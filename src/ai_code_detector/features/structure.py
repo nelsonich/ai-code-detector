@@ -4,6 +4,9 @@ Unlike the regex features, the tree knows what is a statement, a block, a functi
 a string, so keywords in docstrings, braces of data literals or wrapped lines do not
 count as structure. The features describe the logic of a program and do not change
 when an editor re-indents or re-spaces it.
+
+Syntax errors are deliberately not a feature: in the human code of DroidCollection they
+mostly mark fragments cut out of larger files, not mistakes of the author.
 """
 
 from functools import cache
@@ -86,7 +89,7 @@ def _grammars() -> dict[str, _Grammar]:
 
 FEATURES = ("max_nesting_depth", "avg_nesting_depth", "avg_cyclomatic_complexity",
             "max_cyclomatic_complexity", "decisions_per_statement", "statements_per_line",
-            "avg_function_lines", "has_syntax_error")
+            "avg_function_lines")
 _NOT_STATEMENTS = {"compound_statement", "statement_block"}
 
 
@@ -148,5 +151,4 @@ def extract(code: str, language: str) -> dict[str, float]:
         "statements_per_line": len(statement_depths) / lines,
         "avg_function_lines": (sum(function_lines) / len(function_lines)
                                if function_lines else 0.0),
-        "has_syntax_error": float(tree.root_node.has_error),
     }

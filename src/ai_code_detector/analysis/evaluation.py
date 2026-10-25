@@ -25,7 +25,7 @@ FEATURE_GROUPS = {
     "comments": ["has_comments", "comment_line_ratio", "comment_char_ratio"],
     "structure": ["max_nesting_depth", "avg_nesting_depth", "avg_cyclomatic_complexity",
                   "max_cyclomatic_complexity", "decisions_per_statement",
-                  "statements_per_line", "avg_function_lines", "has_syntax_error"],
+                  "statements_per_line", "avg_function_lines"],
     "identifiers": ["n_identifiers", "avg_identifier_length", "short_identifier_ratio",
                     "snake_case_ratio", "camel_case_ratio"],
     "lexical": ["token_diversity", "modern_constructs_per_line", "legacy_constructs_per_line"],

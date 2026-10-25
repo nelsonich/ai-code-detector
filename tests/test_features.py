@@ -52,7 +52,7 @@ def test_structure_counts_blocks_decisions_and_functions():
     # one function with "if" and "&&": complexity 2 + 1
     assert result["avg_cyclomatic_complexity"] == 3 and result["max_cyclomatic_complexity"] == 3
     assert result["decisions_per_statement"] == pytest.approx(2 / 3)
-    assert result["avg_function_lines"] == 6 and result["has_syntax_error"] == 0
+    assert result["avg_function_lines"] == 6
 
 
 def test_structure_ignores_layout_docstrings_and_data_literals():
@@ -64,11 +64,6 @@ def test_structure_ignores_layout_docstrings_and_data_literals():
     assert two["avg_cyclomatic_complexity"] == 2
     data = extract('const user = {\n  address: {\n    city: "B"\n  }\n};', "javascript")
     assert data["max_nesting_depth"] == 0
-
-
-def test_syntax_errors_are_detected():
-    assert extract("for (int i = 0; i < n i++) {", "c")["has_syntax_error"] == 1.0
-    assert extract("<div><p>Hi</p></div>", "html")["has_syntax_error"] == 0.0
 
 
 def test_php_hash_comment_but_not_attribute_or_array_key():
