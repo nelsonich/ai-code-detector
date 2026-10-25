@@ -62,6 +62,11 @@ def trust_group(frame: pd.DataFrame) -> pd.Series:
                              "human (verified)", "human (unverified)"))
 
 
+def _group_label(group: str, present) -> str:
+    """Drop "(verified)" from a legend when there is no unverified group to tell apart."""
+    return group if "human (unverified)" in present else group.replace(" (verified)", "")
+
+
 class Visualizer:
     """Produce the distribution, categorical and relationship figures of the project."""
 
@@ -83,7 +88,7 @@ class Visualizer:
         offset = (len(counts.columns) - 1) / 2
         for i, group in enumerate(counts.columns):
             ax.bar(x + (i - offset) * width, counts[group], width * 0.92,
-                   color=GROUP_COLORS[group], label=group)
+                   color=GROUP_COLORS[group], label=_group_label(group, counts.columns))
         ax.set_xticks(x, counts.index)
         ax.set_ylabel("samples")
         ax.grid(axis="x", visible=False)
@@ -189,7 +194,8 @@ class Visualizer:
             if points.empty:
                 continue
             ax.scatter(points["pc1"], points["pc2"], s=9, alpha=0.35, color=color,
-                       linewidths=0, label=f"{group} (n={len(points)})")
+                       linewidths=0,
+                       label=f"{_group_label(group, set(groups))} (n={len(points)})")
         ax.set_xlabel(f"PC1 ({variance[0]:.0%} of variance)")
         ax.set_ylabel(f"PC2 ({variance[1]:.0%} of variance)")
         ax.set_title("All samples projected on two principal components")
