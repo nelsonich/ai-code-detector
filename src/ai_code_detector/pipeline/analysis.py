@@ -7,6 +7,7 @@ import pandas as pd
 from ai_code_detector.analysis.analyzer import CodeAnalyzer
 from ai_code_detector.analysis.evaluation import (
     ALL_FEATURES,
+    BASELINE,
     NORMALIZED,
     FeatureEvaluator,
     feature_sets,
@@ -96,9 +97,15 @@ def evaluate(config: Config) -> None:
 
 
 def plot(config: Config, top_features: int = 6) -> None:
-    """Write all figures to ``reports/figures``."""
+    """Write all figures to ``reports/figures``.
+
+    Once ``evaluate`` has picked the final features, the descriptive figures show only
+    those; the evaluation figures still compare every feature set.
+    """
     frame = DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES)
-    analyzer = CodeAnalyzer(frame)
+    selected_path = config.tables_dir / SELECTED
+    selected = json.loads(selected_path.read_text()) if selected_path.exists() else ALL_FEATURES
+    analyzer = CodeAnalyzer(frame.drop(columns=[c for c in ALL_FEATURES if c not in selected]))
     separation = analyzer.class_separation()
     top = list(separation.index[:top_features])
     projection, variance = analyzer.pca()
@@ -106,10 +113,9 @@ def plot(config: Config, top_features: int = 6) -> None:
     paths = [
         viz.dataset_composition(frame),
         viz.feature_separation(separation),
-        viz.feature_distributions(frame, top),
+        viz.feature_distributions(analyzer.frame, top),
         viz.habits_by_source(frame),
-        viz.separation_by_language(analyzer.separation_by("language").loc[
-            list(separation.index[:12])]),
+        viz.separation_by_language(analyzer.separation_by("language")),
         viz.pca_projection(projection, variance),
         viz.correlation_heatmap(analyzer.feature_correlation()),
         viz.robustness(analyzer.separation_by_origin(), list(analyzer.robust_features().index)),
@@ -117,9 +123,10 @@ def plot(config: Config, top_features: int = 6) -> None:
     evaluation_path = config.tables_dir / EVALUATION
     if evaluation_path.exists():
         summary = FeatureEvaluator.summary(pd.read_csv(evaluation_path))
-        paths.append(viz.model_evaluation(summary))
+        paths.append(viz.model_evaluation(summary, {
+            BASELINE: "code length only",
+            f"selected ({len(selected)})": f"{len(selected)} features"}))
         paths.append(viz.group_ablation(summary))
-        selected = json.loads((config.tables_dir / SELECTED).read_text())
         importance = pd.read_csv(config.tables_dir / IMPORTANCE, index_col=0)
         paths.append(viz.feature_importance(importance, selected))
     scored = scored_features(config)

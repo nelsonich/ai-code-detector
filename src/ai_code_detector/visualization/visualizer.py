@@ -17,7 +17,7 @@ import pandas as pd  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.ticker import PercentFormatter  # noqa: E402
 
-from ai_code_detector.analysis.evaluation import ALL, BASELINE, NO_FORMATTING  # noqa: E402
+from ai_code_detector.analysis.evaluation import ALL, NO_FORMATTING  # noqa: E402
 
 GROUP_COLORS = {
     "human (verified)": "#2a78d6",
@@ -245,27 +245,28 @@ class Visualizer:
                      "(rows: most consistent first)")
         return self._save(fig, name)
 
-    def model_evaluation(self, summary: pd.DataFrame) -> Path:
-        """Draw mean AUC of each compared feature set, one panel per kind of test."""
-        order = [name for name in summary.index if not name.startswith("without ")
-                 or name == NO_FORMATTING]
-        order = sorted(order, key=lambda n: summary.loc[n].iloc[-1])
+    def model_evaluation(self, summary: pd.DataFrame, rows: dict[str, str]) -> Path:
+        """Draw mean AUC of the given feature sets (name -> label), one panel per test.
+
+        The first set is drawn as the reference (muted), the others in ink.
+        """
+        names = list(rows)
         splits = list(summary.columns)
-        fig, axes = plt.subplots(1, len(splits), figsize=(5 * len(splits), 0.5 * len(order) + 1.6),
+        fig, axes = plt.subplots(1, len(splits), figsize=(5 * len(splits), 0.7 * len(names) + 1.6),
                                  sharey=True)
         for ax, split in zip(np.atleast_1d(axes), splits):
-            values = summary.loc[order, split]
-            colors = [INK if name == ALL else MUTED if name == BASELINE else INK_SECONDARY
-                      for name in order]
-            ax.barh(order, values - 0.5, left=0.5, color=colors, height=0.6)
-            for name, value in values.items():
-                ax.text(value + 0.005, name, f"{value:.2f}", va="center", fontsize=8,
+            values = summary.loc[names, split]
+            labels = [rows[name] for name in names]
+            colors = [MUTED if name == names[0] else INK for name in names]
+            ax.barh(labels, values - 0.5, left=0.5, color=colors, height=0.55)
+            for label, value in zip(labels, values):
+                ax.text(value + 0.008, label, f"{value:.2f}", va="center", fontsize=10,
                         color=INK_SECONDARY)
             ax.set_xlim(0.5, 1.0)
-            ax.set_title(split, fontsize=10)
+            ax.set_title(split, fontsize=11)
             ax.grid(axis="y", visible=False)
             ax.set_xlabel("AUC (0.5 = guessing, 1.0 = perfect)")
-        fig.suptitle("The features together, tested on data the model has not seen",
+        fig.suptitle("Detecting AI code with the features, on data the model has not seen",
                      x=0.01, ha="left", fontsize=12, fontweight="bold")
         return self._save(fig, "09_model_evaluation.png")
 
