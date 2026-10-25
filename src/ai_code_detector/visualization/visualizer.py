@@ -74,19 +74,21 @@ class Visualizer:
         """Draw grouped bars of the number of samples per language and trust group."""
         counts = (frame.assign(group=trust_group(frame))
                   .groupby(["language", "group"], observed=True).size()
-                  .unstack(fill_value=0).reindex(columns=list(GROUP_COLORS), fill_value=0))
+                  .unstack(fill_value=0))
+        counts = counts[[g for g in GROUP_COLORS if g in counts.columns]]
         counts = counts.loc[counts.sum(axis=1).sort_values(ascending=False).index]
         fig, ax = plt.subplots(figsize=(10, 4.5))
         x = np.arange(len(counts))
-        width = 0.27
-        for i, group in enumerate(GROUP_COLORS):
-            ax.bar(x + (i - 1) * width, counts[group], width * 0.92,
+        width = 0.8 / len(counts.columns)
+        offset = (len(counts.columns) - 1) / 2
+        for i, group in enumerate(counts.columns):
+            ax.bar(x + (i - offset) * width, counts[group], width * 0.92,
                    color=GROUP_COLORS[group], label=group)
         ax.set_xticks(x, counts.index)
         ax.set_ylabel("samples")
         ax.grid(axis="x", visible=False)
         ax.set_title("Dataset after cleaning: samples per language and group")
-        ax.legend(ncols=3, loc="upper right")
+        ax.legend(ncols=len(counts.columns), loc="upper right")
         return self._save(fig, "01_dataset_composition.png")
 
     def feature_separation(self, separation: pd.DataFrame) -> Path:
@@ -156,9 +158,10 @@ class Visualizer:
             ax.tick_params(axis="x", labelrotation=30)
             ax.yaxis.set_major_formatter(PercentFormatter(1.0))
         axes[0].set_ylabel("share of samples")
-        fig.suptitle("Formatting habits by source: verified human (blue), unverified "
-                     "student (green), AI (orange)", x=0.01, ha="left", fontsize=12,
-                     fontweight="bold")
+        legend = "human (blue), unverified student (green), AI (orange)" if (
+            "webdproc" in shares.index) else "human (blue), AI (orange)"
+        fig.suptitle(f"Formatting habits by source: {legend}", x=0.01, ha="left",
+                     fontsize=12, fontweight="bold")
         return self._save(fig, "04_habits_by_source.png")
 
     def separation_by_language(self, auc: pd.DataFrame) -> Path:
@@ -183,6 +186,8 @@ class Visualizer:
         fig, ax = plt.subplots(figsize=(8, 6.5))
         for group, color in GROUP_COLORS.items():
             points = projection[groups == group]
+            if points.empty:
+                continue
             ax.scatter(points["pc1"], points["pc2"], s=9, alpha=0.35, color=color,
                        linewidths=0, label=f"{group} (n={len(points)})")
         ax.set_xlabel(f"PC1 ({variance[0]:.0%} of variance)")

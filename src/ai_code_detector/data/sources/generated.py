@@ -1,7 +1,7 @@
 """Code generated for this project by AI models (see ``ai_code_detector.generation``)."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -18,9 +18,10 @@ class GeneratedSource(DataSource):
 
     name = "generated"
 
-    def __init__(self, root: Path) -> None:
-        """Remember the directory with the generation results."""
+    def __init__(self, root: Path, exclude_task_datasets: Iterable[str] = ()) -> None:
+        """Remember the result directory and the task datasets whose code is skipped."""
         self.root = root
+        self.exclude_task_datasets = frozenset(exclude_task_datasets)
 
     def load(self) -> Iterator[CodeRecord]:
         """Yield one record per non-empty code block of every generated solution."""
@@ -31,6 +32,8 @@ class GeneratedSource(DataSource):
                         yield from self._to_records(json.loads(line))
 
     def _to_records(self, row: dict) -> Iterator[CodeRecord]:
+        if row["task_id"].split(":")[0] in self.exclude_task_datasets:
+            return
         for language, code in sorted(row["codes"].items()):
             if not code.strip():
                 continue

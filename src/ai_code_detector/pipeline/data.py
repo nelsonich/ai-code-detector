@@ -22,7 +22,8 @@ def build_sources(config: Config) -> list[DataSource]:
     """Create the configured sources whose data directory exists."""
     settings = config.sources
     sources: list[DataSource] = []
-    if (PROJECT_ROOT / settings["webdproc"]["dir"]).exists():
+    if (settings["webdproc"].get("enabled", True)
+            and (PROJECT_ROOT / settings["webdproc"]["dir"]).exists()):
         sources.append(WebdprocSource(PROJECT_ROOT / settings["webdproc"]["dir"]))
     if (PROJECT_ROOT / settings["progpedia"]["dir"]).exists():
         sources.append(ProgpediaSource(PROJECT_ROOT / settings["progpedia"]["dir"]))
@@ -38,8 +39,10 @@ def build_sources(config: Config) -> list[DataSource]:
     if (PROJECT_ROOT / droid["dir"]).exists():
         sources.append(DroidSource(PROJECT_ROOT / droid["dir"],
                                    per_group=droid["per_group"], seed=droid["seed"]))
-    if (PROJECT_ROOT / settings["generated"]["dir"]).exists():
-        sources.append(GeneratedSource(PROJECT_ROOT / settings["generated"]["dir"]))
+    generated = settings["generated"]
+    if (PROJECT_ROOT / generated["dir"]).exists():
+        sources.append(GeneratedSource(PROJECT_ROOT / generated["dir"],
+                                       generated.get("exclude_task_datasets", ())))
     return sources
 
 
