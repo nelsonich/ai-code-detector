@@ -189,3 +189,14 @@ def test_run_writes_results_resumes_and_feeds_generated_source(tmp_path):
     assert set(t1) == {"html", "css"}
     assert t1["html"].label == "ai" and t1["html"].label_status == "verified"
     assert t1["html"].generator == "good" and t1["html"].prompt_style == "standard"
+
+
+def test_generated_code_of_excluded_task_datasets_is_skipped(tmp_path):
+    row = {"job_id": "j", "task_id": "webdproc:lesson:1", "generator": "g", "style": "standard",
+           "model": "m", "served_model": "m", "statement_truncated": False,
+           "created_at": "2026-10-01T00:00:00+00:00", "codes": {"python": "print(1)"}}
+    (tmp_path / "g.jsonl").write_text(json.dumps(row) + "\n" + json.dumps(
+        row | {"job_id": "k", "task_id": "progpedia:7"}) + "\n")
+    kept = list(GeneratedSource(tmp_path, exclude_task_datasets=["webdproc"]).load())
+    assert [r.task_id for r in kept] == ["progpedia:7"]
+    assert len(list(GeneratedSource(tmp_path).load())) == 2

@@ -6,8 +6,11 @@ paths:
   tables: reports/tables
 
 sources:
+  # Off for the study: nobody can tell which of these students used AI, so the code has
+  # no trustworthy label. Kept for applying the detector to the platform later.
   webdproc:
     dir: data/raw/webdproc
+    enabled: false
   progpedia:
     dir: data/raw/progpedia
   codenet:
@@ -22,6 +25,9 @@ sources:
     seed: 42
   generated:
     dir: data/raw/generated
+    # AI code for tasks whose human solutions are not loaded has nothing to be compared
+    # with, so it is left out (webdproc tasks also hold all HTML and CSS).
+    exclude_task_datasets: [webdproc]
 
 generation:
   output_dir: data/raw/generated
