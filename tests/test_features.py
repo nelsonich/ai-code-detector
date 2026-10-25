@@ -38,15 +38,34 @@ def test_comments_block_inline_and_url_not_a_comment():
     assert result["comment_line_ratio"] == 4 / 5
 
 
-def test_comment_natural_language_shares():
-    armenian = extract("// Բարև աշխարհ\nlet a = 1;", "javascript")
-    assert armenian["comment_armenian_ratio"] == 1.0 and armenian["comment_cyrillic_ratio"] == 0
-    punctuated = extract("// Բարև, աշխարհ՝ ողջույն։\nlet a = 1;", "javascript")
-    assert punctuated["comment_armenian_ratio"] == 1.0
-    russian = extract("# привет world\nx = 1", "python")
-    assert russian["comment_cyrillic_ratio"] == pytest.approx(6 / 11)
+def test_html_comments_are_found():
     html = extract("<!-- note -->\n<p>Hi</p>", "html")
-    assert html["has_comments"] == 1.0 and html["comment_armenian_ratio"] == 0.0
+    assert html["has_comments"] == 1.0
+
+
+def test_nesting_and_decisions_in_braced_code():
+    result = extract("int main() {\n  if (a && b) {\n    x = 1;\n  }\n}", "c")
+    assert result["max_nesting_depth"] == 2
+    assert result["avg_nesting_depth"] == pytest.approx((0 + 1 + 2 + 1 + 0) / 5)
+    assert result["decision_points_per_line"] == pytest.approx(2 / 5)
+
+
+def test_python_nesting_ignores_indent_width_and_tabs():
+    two = extract("def f(x):\n  if x and y:\n    return 1\n  return 0", "python")
+    tabs = extract("def f(x):\n\tif x and y:\n\t\treturn 1\n\treturn 0", "python")
+    for name in ("max_nesting_depth", "avg_nesting_depth", "decision_points_per_line"):
+        assert two[name] == tabs[name]
+    assert two["max_nesting_depth"] == 2 and two["decision_points_per_line"] == 2 / 4
+
+
+def test_html_nesting_skips_void_tags():
+    assert syntax.nesting_depths("<div>\n<p>Hi<br></p>\n<img src=x>\n</div>", "html") == [
+        0, 1, 1, 1]
+
+
+def test_structure_ignores_braces_and_keywords_in_strings_and_comments():
+    result = extract('let s = "{{ if }}";\n// if (a) {\nlet t = 1;', "javascript")
+    assert result["max_nesting_depth"] == 0 and result["decision_points_per_line"] == 0
 
 
 def test_php_hash_comment_but_not_attribute_or_array_key():

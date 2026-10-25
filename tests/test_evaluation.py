@@ -2,12 +2,15 @@ import numpy as np
 import pandas as pd
 
 from ai_code_detector.analysis.evaluation import (
+    ALL,
     ALL_FEATURES,
+    BASELINE,
     IN_DOMAIN,
     UNSEEN_LANGUAGE,
     UNSEEN_ORIGIN,
     FeatureEvaluator,
     feature_sets,
+    select_features,
     tpr_at_fpr,
 )
 
@@ -31,8 +34,8 @@ def _frame(n=60, seed=0):
 
 def test_feature_sets_cover_baseline_all_and_one_ablation_per_group():
     sets = feature_sets()
-    assert sets["all 24 features"] == ALL_FEATURES and len(ALL_FEATURES) == 24
-    assert "length only (baseline)" in sets and "without indentation" in sets
+    assert sets[ALL] == ALL_FEATURES and len(ALL_FEATURES) == len(set(ALL_FEATURES)) == 25
+    assert BASELINE in sets and "without indentation" in sets and "without structure" in sets
     assert "tab_indent_ratio" not in sets["without formatting"]
 
 
@@ -53,8 +56,25 @@ def test_evaluator_drops_unverified_and_webdproc_and_builds_three_kinds_of_split
 def test_informative_feature_beats_the_length_baseline_everywhere():
     evaluator = FeatureEvaluator(_frame(), ["python", "java"], min_per_class=50, n_folds=3)
     sets = {k: v for k, v in feature_sets().items()
-            if k in ("length only (baseline)", "all 24 features")}
+            if k in (BASELINE, ALL)}
     summary = FeatureEvaluator.summary(evaluator.run(sets))
     assert list(summary.columns) == [IN_DOMAIN, UNSEEN_LANGUAGE, UNSEEN_ORIGIN]
-    assert (summary.loc["all 24 features"] > 0.8).all()
-    assert (summary.loc["length only (baseline)"] < 0.7).all()
+    assert (summary.loc[ALL] > 0.8).all()
+    assert (summary.loc[BASELINE] < 0.7).all()
+
+
+def test_importance_ranks_the_informative_feature_first():
+    evaluator = FeatureEvaluator(_frame(), ["python", "java"], min_per_class=50)
+    table = evaluator.importance(["tab_indent_ratio", "n_chars"], n_repeats=2)
+    assert table.index[0] == "tab_indent_ratio"
+    assert table.loc["tab_indent_ratio"].min() > table.loc["n_chars"].max()
+
+
+def test_select_features_drops_useless_and_near_duplicate_features():
+    importance = pd.DataFrame({"a": [0.05, 0.04], "b": [0.03, 0.02], "c": [0.02, -0.01]},
+                              index=["unseen language", "unseen origin"]).T
+    correlation = pd.DataFrame(np.eye(3), index=list("abc"), columns=list("abc"))
+    correlation.loc["a", "b"] = correlation.loc["b", "a"] = 0.95
+    assert select_features(importance, correlation) == ["a"]
+    correlation.loc["a", "b"] = correlation.loc["b", "a"] = 0.5
+    assert select_features(importance, correlation) == ["a", "b"]

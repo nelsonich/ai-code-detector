@@ -9,6 +9,7 @@ new tasks, an unseen language, and an unseen origin (another population of peopl
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import GroupKFold
 
@@ -21,8 +22,8 @@ FEATURE_GROUPS = {
     "layout": ["blank_line_ratio", "trailing_whitespace_ratio"],
     "indentation": ["avg_indent", "indent_std", "tab_indent_ratio", "mixed_indentation",
                     "even_indent_ratio"],
-    "comments": ["has_comments", "comment_line_ratio", "comment_char_ratio",
-                 "comment_armenian_ratio", "comment_cyrillic_ratio"],
+    "comments": ["has_comments", "comment_line_ratio", "comment_char_ratio"],
+    "structure": ["max_nesting_depth", "avg_nesting_depth", "decision_points_per_line"],
     "identifiers": ["n_identifiers", "avg_identifier_length", "short_identifier_ratio",
                     "snake_case_ratio", "camel_case_ratio"],
     "lexical": ["token_diversity", "modern_constructs_per_line", "legacy_constructs_per_line"],
@@ -33,12 +34,18 @@ FORMATTING = ["blank_line_ratio", "trailing_whitespace_ratio", "tab_indent_ratio
               "mixed_indentation", "even_indent_ratio"]
 
 
+ALL = "all features"
+BASELINE = "length only (baseline)"
+NO_FORMATTING = "without formatting"
+NORMALIZED = "__normalized"
+
+
 def feature_sets() -> dict[str, list[str]]:
     """Feature sets compared in the report: a length baseline, all features, ablations."""
     sets = {
-        "length only (baseline)": ["n_chars", "n_lines"],
-        "all 24 features": ALL_FEATURES,
-        "without formatting": [c for c in ALL_FEATURES if c not in FORMATTING],
+        BASELINE: ["n_chars", "n_lines"],
+        ALL: ALL_FEATURES,
+        NO_FORMATTING: [c for c in ALL_FEATURES if c not in FORMATTING],
     }
     for group, columns in FEATURE_GROUPS.items():
         sets[f"without {group}"] = [c for c in ALL_FEATURES if c not in columns]
@@ -90,9 +97,7 @@ class FeatureEvaluator:
         for split, held_out, train, test in self.splits():
             for name, columns in sets.items():
                 x = self._matrix(columns)
-                model = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05,
-                                                       random_state=self.seed)
-                model.fit(x[train], self.y[train])
+                model = self._model().fit(x[train], self.y[train])
                 scores = model.predict_proba(x[test])[:, 1]
                 rows.append({
                     "split": split, "held_out": held_out, "feature_set": name,
@@ -103,6 +108,28 @@ class FeatureEvaluator:
                 })
         return pd.DataFrame(rows)
 
+    def importance(self, columns: list[str], n_repeats: int = 5) -> pd.DataFrame:
+        """Permutation importance of every feature, averaged over the held-out parts.
+
+        For each unseen language and origin the model is trained on the rest; then one
+        feature at a time is shuffled in the held-out part, and the AUC it loses is that
+        feature's importance. Near zero or negative: the model does not need it there.
+        """
+        rows = []
+        for split, held_out, train, test in self.splits():
+            if split == IN_DOMAIN:
+                continue
+            x = self._matrix(columns)
+            model = self._model().fit(x[train], self.y[train])
+            result = permutation_importance(model, x[test], self.y[test], scoring="roc_auc",
+                                            n_repeats=n_repeats, random_state=self.seed)
+            for i, feature in enumerate(columns):
+                rows.append({"split": split, "held_out": held_out, "feature": feature,
+                             "importance": result.importances_mean[i]})
+        table = pd.DataFrame(rows).pivot_table(index="feature", columns="split",
+                                               values="importance")
+        return table.sort_values(table.columns[-1], ascending=False)
+
     @staticmethod
     def summary(results: pd.DataFrame) -> pd.DataFrame:
         """Mean AUC per feature set and split, in the order of ``SPLITS``."""
@@ -110,8 +137,29 @@ class FeatureEvaluator:
                                     sort=False)
         return table[[s for s in SPLITS if s in table.columns]]
 
+    def _model(self) -> HistGradientBoostingClassifier:
+        return HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05,
+                                              random_state=self.seed)
+
     def _matrix(self, columns: list[str]) -> np.ndarray:
         values = self.frame[columns].to_numpy(dtype=float)
         language = self.frame["language"].astype(str).to_numpy()
         onehot = np.stack([(language == lang) for lang in self.languages], axis=1)
         return np.hstack([values, onehot.astype(float)])
+
+
+def select_features(importance: pd.DataFrame, correlation: pd.DataFrame,
+                    min_importance: float = 0.001, max_correlation: float = 0.9) -> list[str]:
+    """Keep features that help on unseen data and are not near-copies of a better one.
+
+    A feature stays when its importance is at least ``min_importance`` on every kind of
+    unseen split; of two features correlated above ``max_correlation`` only the more
+    important one stays.
+    """
+    useful = importance[(importance >= min_importance).all(axis=1)]
+    ranked = useful.mean(axis=1).sort_values(ascending=False).index
+    kept: list[str] = []
+    for feature in ranked:
+        if all(abs(correlation.loc[feature, other]) <= max_correlation for other in kept):
+            kept.append(feature)
+    return kept

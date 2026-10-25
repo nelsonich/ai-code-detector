@@ -17,6 +17,8 @@ import pandas as pd  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.ticker import PercentFormatter  # noqa: E402
 
+from ai_code_detector.analysis.evaluation import ALL, BASELINE, NO_FORMATTING  # noqa: E402
+
 GROUP_COLORS = {
     "human (verified)": "#2a78d6",
     "ai": "#eb6834",
@@ -202,6 +204,27 @@ class Visualizer:
         ax.set_title("Correlation between features")
         return self._save(fig, "07_feature_correlation.png")
 
+    def feature_importance(self, importance: pd.DataFrame, selected: list[str]) -> Path:
+        """Draw each feature's permutation importance on unseen data, marking the kept ones."""
+        order = importance.mean(axis=1).sort_values().index
+        fig, axes = plt.subplots(1, len(importance.columns),
+                                 figsize=(5.5 * len(importance.columns), 0.32 * len(order) + 1.8),
+                                 sharey=True)
+        for ax, split in zip(np.atleast_1d(axes), importance.columns):
+            values = importance.loc[order, split]
+            colors = [INK if name in selected else MUTED for name in order]
+            ax.barh(order, values, color=colors, height=0.65)
+            ax.axvline(0, color=AXIS, linewidth=1)
+            ax.set_title(split, fontsize=10)
+            ax.grid(axis="y", visible=False)
+            ax.set_xlabel("AUC lost when the feature is shuffled")
+        handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (INK, MUTED)]
+        np.atleast_1d(axes)[-1].legend(handles, [f"kept ({len(selected)})", "dropped"],
+                                       loc="lower right")
+        fig.suptitle("How much the model needs each feature on unseen data",
+                     x=0.01, ha="left", fontsize=12, fontweight="bold")
+        return self._save(fig, "11_feature_importance.png")
+
     def robustness(self, cells: pd.DataFrame, order: list[str],
                    name: str = "08_feature_robustness.png", title: str | None = None) -> Path:
         """Draw a heatmap of signed separation per feature in every language and origin."""
@@ -223,36 +246,34 @@ class Visualizer:
         return self._save(fig, name)
 
     def model_evaluation(self, summary: pd.DataFrame) -> Path:
-        """Draw mean AUC per split for the baseline, all features and no formatting (dots)."""
-        shown = {"length only (baseline)": MUTED, "without formatting": INK_SECONDARY,
-                 "all 24 features": INK}
+        """Draw mean AUC of each compared feature set, one panel per kind of test."""
+        order = [name for name in summary.index if not name.startswith("without ")
+                 or name == NO_FORMATTING]
+        order = sorted(order, key=lambda n: summary.loc[n].iloc[-1])
         splits = list(summary.columns)
-        fig, ax = plt.subplots(figsize=(9, 3.6))
-        ax.axvline(0.5, color=AXIS, linewidth=1, linestyle="--")
-        ax.text(0.505, len(splits) - 0.45, "0.5 = guessing", color=MUTED, fontsize=8)
-        for row, split in enumerate(reversed(splits)):
-            values = [summary.loc[name, split] for name in shown]
-            ax.plot([min(values), max(values)], [row, row], color=GRID, linewidth=3, zorder=1)
-            for name, color in shown.items():
-                value = summary.loc[name, split]
-                ax.scatter(value, row, s=70, color=color, zorder=2,
-                           label=name if row == 0 else None)
-                ax.text(value, row + 0.22, f"{value:.2f}", ha="center", fontsize=8,
+        fig, axes = plt.subplots(1, len(splits), figsize=(5 * len(splits), 0.5 * len(order) + 1.6),
+                                 sharey=True)
+        for ax, split in zip(np.atleast_1d(axes), splits):
+            values = summary.loc[order, split]
+            colors = [INK if name == ALL else MUTED if name == BASELINE else INK_SECONDARY
+                      for name in order]
+            ax.barh(order, values - 0.5, left=0.5, color=colors, height=0.6)
+            for name, value in values.items():
+                ax.text(value + 0.005, name, f"{value:.2f}", va="center", fontsize=8,
                         color=INK_SECONDARY)
-        ax.set_yticks(range(len(splits)), list(reversed(splits)))
-        ax.set_ylim(-0.6, len(splits) - 0.3)
-        ax.set_xlim(0.45, 1.0)
-        ax.set_xlabel("AUC of a classifier trained on the features (1.0 = perfect)")
-        ax.grid(axis="y", visible=False)
-        ax.legend(loc="lower right", ncols=3, fontsize=8)
-        ax.set_title("All 24 features together, tested on data the model has not seen")
+            ax.set_xlim(0.5, 1.0)
+            ax.set_title(split, fontsize=10)
+            ax.grid(axis="y", visible=False)
+            ax.set_xlabel("AUC (0.5 = guessing, 1.0 = perfect)")
+        fig.suptitle("The features together, tested on data the model has not seen",
+                     x=0.01, ha="left", fontsize=12, fontweight="bold")
         return self._save(fig, "09_model_evaluation.png")
 
     def group_ablation(self, summary: pd.DataFrame) -> Path:
         """Draw how much AUC drops when each feature group is removed, per split."""
-        full = summary.loc["all 24 features"]
+        full = summary.loc[ALL]
         rows = [name for name in summary.index if name.startswith("without ")
-                and name != "without formatting"]
+                and name != NO_FORMATTING]
         drops = (full - summary.loc[rows]).rename(index=lambda n: n.removeprefix("without "))
         splits = [s for s in drops.columns if s != drops.columns[0]] or list(drops.columns)
         order = drops[splits[-1]].sort_values().index

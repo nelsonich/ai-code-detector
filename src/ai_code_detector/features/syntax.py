@@ -139,3 +139,74 @@ def construct_counts(code: str, language: str) -> tuple[int, int]:
     modern, legacy = _COMPILED.get(language, ([], []))
     return (sum(len(p.findall(code)) for p in modern),
             sum(len(p.findall(code)) for p in legacy))
+
+
+# Decision points add a path through the program: an approximation of cyclomatic
+# complexity that needs no parser. "else if" counts once, through its "if".
+_C_DECISIONS = r"\b(?:if|for|while|case|catch)\b|&&|\|\||\s\?\s"
+_DECISIONS = {
+    "javascript": _C_DECISIONS,
+    "c": _C_DECISIONS,
+    "cpp": _C_DECISIONS,
+    "java": _C_DECISIONS,
+    "csharp": r"\b(?:if|for|foreach|while|case|catch)\b|&&|\|\||\s\?\s",
+    "php": r"\b(?:if|elseif|for|foreach|while|case|catch)\b|&&|\|\||\s\?\s",
+    "python": r"\b(?:if|elif|for|while|except|and|or)\b",
+}
+_DECISION_PATTERNS = {language: re.compile(p) for language, p in _DECISIONS.items()}
+_HTML_TAG = re.compile(r"<(/?)([a-zA-Z][\w-]*)[^>]*?(/?)>")
+_VOID_TAGS = frozenset("area base br col embed hr img input link meta source track wbr".split())
+
+
+def decision_points(code: str, language: str) -> int:
+    """Count branches and loops in comment- and string-free code."""
+    pattern = _DECISION_PATTERNS.get(language)
+    return len(pattern.findall(code)) if pattern else 0
+
+
+def nesting_depths(code: str, language: str) -> list[int]:
+    """Return the block depth at the start of every non-blank line.
+
+    Depth comes from the program structure, not from how wide it is indented:
+    braces in C-like languages and CSS, open tags in HTML, and indentation levels
+    (not their width) in Python. Expects comment- and string-free code.
+    """
+    if language == "python":
+        return _indentation_levels(code)
+    if language == "html":
+        return _tag_depths(code)
+    depths, depth = [], 0
+    for line in code.split("\n"):
+        stripped = line.strip()
+        if stripped:
+            # A line opening with "}" already belongs to the outer block.
+            leading_closers = len(stripped) - len(stripped.lstrip("}"))
+            depths.append(max(depth - leading_closers, 0))
+        depth += line.count("{") - line.count("}")
+    return depths
+
+
+def _indentation_levels(code: str) -> list[int]:
+    depths, stack = [], [0]
+    for line in code.split("\n"):
+        if not line.strip():
+            continue
+        width = len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip())
+        while len(stack) > 1 and width < stack[-1]:
+            stack.pop()
+        if width > stack[-1]:
+            stack.append(width)
+        depths.append(len(stack) - 1)
+    return depths
+
+
+def _tag_depths(code: str) -> list[int]:
+    depths, depth = [], 0
+    for line in code.split("\n"):
+        if line.strip():
+            depths.append(max(depth, 0))
+        for closing, name, self_closing in _HTML_TAG.findall(line):
+            if self_closing or name.lower() in _VOID_TAGS:
+                continue
+            depth += -1 if closing else 1
+    return depths
