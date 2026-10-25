@@ -6,11 +6,8 @@ import re
 import numpy as np
 import pandas as pd
 
-from ai_code_detector.features import syntax
+from ai_code_detector.features import structure, syntax
 
-_ARMENIAN = re.compile(r"[Ա-Ֆա-և]")
-_CYRILLIC = re.compile(r"[Ѐ-ӿ]")
-_LETTER = re.compile(r"[^\W\d_]")
 _SNAKE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
 _CAMEL = re.compile(r"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+$")
 
@@ -20,8 +17,8 @@ class FeatureExtractor:
 
     The same extractor is used for the exploratory analysis and, later, as the
     input of the model, so both always see identical features. Feature groups:
-    size, layout and indentation, comments (amount and natural language),
-    identifiers, token diversity and modern versus legacy constructs.
+    size, layout and indentation, comments, program structure (nesting and
+    branching), identifiers, token diversity and modern versus legacy constructs.
     """
 
     def transform(self, frame: pd.DataFrame) -> pd.DataFrame:
@@ -35,11 +32,13 @@ class FeatureExtractor:
     def extract(self, code: str, language: str) -> dict[str, float]:
         """Compute all features for a single code sample."""
         comments, without_comments = syntax.split_comments(code, language)
+        program = syntax.strip_strings(without_comments)
         lines = code.splitlines() or [""]
         return (self._layout(code, lines)
                 | self._indentation(lines)
                 | self._comments(code, comments, without_comments)
-                | self._identifiers(syntax.strip_strings(without_comments), language)
+                | structure.extract(code, language)
+                | self._identifiers(program, language)
                 | self._constructs(without_comments, language, len(lines)))
 
     @staticmethod
@@ -73,7 +72,6 @@ class FeatureExtractor:
     @staticmethod
     def _comments(code: str, comments: list[str], without_comments: str) -> dict[str, float]:
         text = " ".join(comments)
-        letters = len(_LETTER.findall(text))
         # split("\n") keeps a trailing empty line, so both sides stay aligned line by line.
         code_lines = code.split("\n")
         stripped_lines = without_comments.split("\n")
@@ -84,8 +82,6 @@ class FeatureExtractor:
             "has_comments": float(bool(comments)),
             "comment_line_ratio": commented / n_lines,
             "comment_char_ratio": len(text) / len(code) if code else 0.0,
-            "comment_armenian_ratio": len(_ARMENIAN.findall(text)) / letters if letters else 0.0,
-            "comment_cyrillic_ratio": len(_CYRILLIC.findall(text)) / letters if letters else 0.0,
         }
 
     @staticmethod

@@ -139,3 +139,4 @@ def construct_counts(code: str, language: str) -> tuple[int, int]:
     modern, legacy = _COMPILED.get(language, ([], []))
     return (sum(len(p.findall(code)) for p in modern),
             sum(len(p.findall(code)) for p in legacy))
+

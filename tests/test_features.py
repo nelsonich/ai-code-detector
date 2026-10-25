@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from ai_code_detector.data.schema import RECORD_COLUMNS
-from ai_code_detector.features import syntax
+from ai_code_detector.features import structure, syntax
 from ai_code_detector.features.extractor import FeatureExtractor
 
 extract = FeatureExtractor().extract
@@ -38,15 +38,32 @@ def test_comments_block_inline_and_url_not_a_comment():
     assert result["comment_line_ratio"] == 4 / 5
 
 
-def test_comment_natural_language_shares():
-    armenian = extract("// Բարև աշխարհ\nlet a = 1;", "javascript")
-    assert armenian["comment_armenian_ratio"] == 1.0 and armenian["comment_cyrillic_ratio"] == 0
-    punctuated = extract("// Բարև, աշխարհ՝ ողջույն։\nlet a = 1;", "javascript")
-    assert punctuated["comment_armenian_ratio"] == 1.0
-    russian = extract("# привет world\nx = 1", "python")
-    assert russian["comment_cyrillic_ratio"] == pytest.approx(6 / 11)
+def test_html_comments_are_found():
     html = extract("<!-- note -->\n<p>Hi</p>", "html")
-    assert html["has_comments"] == 1.0 and html["comment_armenian_ratio"] == 0.0
+    assert html["has_comments"] == 1.0
+
+
+def test_structure_counts_blocks_decisions_and_functions():
+    code = "int f(int a, int b) {\n  if (a && b) {\n    return 1;\n  }\n  return 0;\n}"
+    result = extract(code, "c")
+    # statements: if (depth 1), return 1 (depth 2), return 0 (depth 1)
+    assert result["max_nesting_depth"] == 2
+    assert result["avg_nesting_depth"] == pytest.approx(4 / 3)
+    # one function with "if" and "&&": complexity 2 + 1
+    assert result["avg_cyclomatic_complexity"] == 3 and result["max_cyclomatic_complexity"] == 3
+    assert result["decisions_per_statement"] == pytest.approx(2 / 3)
+    assert result["avg_function_lines"] == 6
+
+
+def test_structure_ignores_layout_docstrings_and_data_literals():
+    spaces = 'def f(x):\n  """Return 0 if x or y."""\n  if x:\n    return 1\n  return 0'
+    tabs = spaces.replace("    ", "\t\t").replace("  ", "\t")
+    two, tabbed = extract(spaces, "python"), extract(tabs, "python")
+    for name in structure.FEATURES:
+        assert two[name] == tabbed[name]
+    assert two["avg_cyclomatic_complexity"] == 2
+    data = extract('const user = {\n  address: {\n    city: "B"\n  }\n};', "javascript")
+    assert data["max_nesting_depth"] == 0
 
 
 def test_php_hash_comment_but_not_attribute_or_array_key():
