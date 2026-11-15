@@ -51,17 +51,19 @@ def test_lecture_examples_are_unescaped_and_only_from_lessons():
 
 def test_drops_copies_of_lecture_examples_in_both_classes():
     own = "<html>\n<body>\n<h2>My own page about cats and dogs</h2>\n<p>Text</p>\n</body>\n</html>"
+    # Close to lesson 1's example, but lesson 2 has no examples, so it is not a copy.
+    similar = EXAMPLE.replace("Heading", "Title")
     frame = _frame([
         {"code": EXAMPLE, "language": "html", "task_id": LESSON},
         {"code": EXAMPLE.replace("Heading", "Headings"), "language": "html", "task_id": LESSON,
          "label": "ai", "label_status": "verified", "generator": "g", "prompt_style": "standard"},
         {"code": own, "language": "html", "task_id": LESSON},
-        {"code": EXAMPLE, "language": "html", "task_id": "webdproc:lesson:2"},
+        {"code": similar, "language": "html", "task_id": "webdproc:lesson:2"},
     ])
     preprocessor = CodePreprocessor(min_code_chars=10, languages=["html"])
     clean = preprocessor.run(frame, _tasks())
 
-    assert sorted(clean["code"]) == sorted([own, EXAMPLE])
+    assert sorted(clean["code"]) == sorted([own, similar])
     assert preprocessor.report["steps"][-1] == {
         "step": "drop_lecture_copies", "removed": 2,
         "removed_by_label": {"human": 1, "ai": 1}, "remaining": 2}

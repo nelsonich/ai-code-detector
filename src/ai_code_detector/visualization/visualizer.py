@@ -31,7 +31,8 @@ SOURCE_COLORS = {"progpedia": GROUP_COLORS["human (verified)"],
                  "webdproc": GROUP_COLORS["human (unverified)"],
                  "generated": GROUP_COLORS["ai"],
                  "droid ai": GROUP_COLORS["ai"]}
-INK, INK_SECONDARY, MUTED = "#0b0b0b", "#52514e", "#898781"
+ORIGIN_NAMES = {"droid-cp": "competitive", "droid-github": "GitHub"}
+INK, INK_SECONDARY, MUTED ="#0b0b0b", "#52514e", "#898781"
 SURFACE, GRID, AXIS = "#fcfcfb", "#e1e0d9", "#c3c2b7"
 DIVERGING = LinearSegmentedColormap.from_list(
     "blue_gray_red", ["#184f95", "#6da7ec", "#f0efec", "#ec8f8e", "#b8302f"])
@@ -169,15 +170,27 @@ class Visualizer:
         return self._save(fig, "03_feature_distributions.png")
 
     def habits_by_source(self, frame: pd.DataFrame) -> Path:
-        """Draw the share of samples with each formatting habit, per source dataset."""
+        """Draw how common each habit is per population and class.
+
+        The population is the source dataset, or the origin (competitive programming or
+        GitHub) when all code comes from one dataset.
+        """
         habits = {
-            "trailing whitespace": frame["trailing_whitespace_ratio"] > 0,
-            "tab indentation": frame["tab_indent_ratio"] > 0,
-            "any comment": frame["has_comments"] > 0,
+            "files with tab indentation": frame["tab_indent_ratio"] > 0,
+            "files with any comment": frame["has_comments"] > 0,
+            "blank lines (share of lines)": frame["blank_line_ratio"],
         }
-        shares = pd.DataFrame(habits).groupby(source_group(frame)).mean()
-        shares = shares.loc[[d for d in SOURCE_COLORS if d in shares.index]]
-        colors = [SOURCE_COLORS[d] for d in shares.index]
+        if frame["dataset"].nunique() > 1:
+            groups = source_group(frame)
+        else:
+            groups = (frame["origin"].astype(str).map(ORIGIN_NAMES).fillna(frame["origin"])
+                      + " " + frame["label"].astype(str))
+        shares = pd.DataFrame(habits).groupby(groups.to_numpy()).mean()
+        order = list(SOURCE_COLORS) if frame["dataset"].nunique() > 1 else sorted(
+            shares.index, key=lambda g: (g.rsplit(" ", 1)[0], g.endswith(" ai")))
+        shares = shares.loc[[g for g in order if g in shares.index]]
+        colors = [SOURCE_COLORS[g] if g in SOURCE_COLORS else LABEL_COLORS[g.rsplit(" ", 1)[-1]]
+                  for g in shares.index]
         fig, axes = plt.subplots(1, len(habits), figsize=(15, 4), sharey=True)
         for ax, habit in zip(axes, habits):
             ax.bar(shares.index, shares[habit], color=colors, width=0.7)
@@ -192,7 +205,7 @@ class Visualizer:
         axes[0].set_ylabel("share of samples")
         legend = "human (blue), unverified student (green), AI (orange)" if (
             "webdproc" in shares.index) else "human (blue), AI (orange)"
-        fig.suptitle(f"Formatting habits by source: {legend}", x=0.01, ha="left",
+        fig.suptitle(f"Habits by kind of code: {legend}", x=0.01, ha="left",
                      fontsize=12, fontweight="bold")
         return self._save(fig, "04_habits_by_source.png")
 

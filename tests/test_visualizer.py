@@ -19,6 +19,7 @@ def _frame(n=40, seed=0):
                 "trailing_whitespace_ratio": rng.uniform(0, 0.2) if label == "human" else 0.0,
                 "tab_indent_ratio": rng.uniform(0, 1) * (label == "human"),
                 "has_comments": float(rng.random() < 0.5),
+                "blank_line_ratio": rng.uniform(0, 0.2),
                 "token_diversity": rng.normal(0.7 + 0.05 * (label == "ai"), 0.02),
             })
     return pd.DataFrame(rows)
@@ -33,6 +34,12 @@ def test_source_group_splits_datasets_with_both_classes():
     frame = pd.DataFrame({"dataset": ["droid", "droid", "progpedia"],
                           "label": ["ai", "human", "human"]})
     assert list(source_group(frame)) == ["droid ai", "droid human", "progpedia"]
+
+
+def test_habits_of_a_single_dataset_are_split_by_origin(tmp_path):
+    frame = _frame().assign(dataset="droid",
+                            origin=lambda f: np.where(f.index % 2, "droid-cp", "droid-github"))
+    assert Visualizer(tmp_path).habits_by_source(frame).exists()
 
 
 def test_every_figure_is_written(tmp_path):

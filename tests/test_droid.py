@@ -41,3 +41,13 @@ def test_samples_at_most_per_group(tmp_path):
     root = tmp_path / "droid"
     _write(root, [_row("HUMAN_GENERATED", "TACO") for _ in range(5)])
     assert len(list(DroidSource(root, per_group=2).load())) == 2
+
+
+def test_balanced_takes_as_many_human_as_ai_per_language_and_origin(tmp_path):
+    root = tmp_path / "droid"
+    _write(root, [_row("HUMAN_GENERATED", "TACO") for _ in range(5)]
+           + [_row("MACHINE_GENERATED", "TACO", generator="GPT-4o") for _ in range(2)]
+           + [_row("HUMAN_GENERATED", "TACO", language="PHP") for _ in range(3)])
+    labels = [r.label for r in DroidSource(root, per_group=10, balanced=True).load()]
+    assert sorted(labels) == ["ai", "ai", "human", "human"]
+    assert len(list(DroidSource(root, per_group=1, balanced=True).load())) == 2

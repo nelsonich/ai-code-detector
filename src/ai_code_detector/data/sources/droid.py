@@ -3,8 +3,8 @@
 Dataset: https://huggingface.co/datasets/project-droid/DroidCollection (the test split is
 enough for analysis). Every language has human code from more than one population
 (competitive programming sites and GitHub), each paired with AI code generated for the
-same kind of task. That makes it the control our own data lacks: a feature is a sign of
-AI only if it separates AI from human code inside every population.
+same kind of task, so a difference between the classes cannot come from where the code
+was collected. That is why the study uses this source alone.
 """
 
 from collections.abc import Iterator
@@ -43,11 +43,17 @@ class DroidSource(DataSource):
 
     name = "droid"
 
-    def __init__(self, root: Path, per_group: int = 300, seed: int = 42) -> None:
-        """Store the directory with Droid parquet files and the sample size per group."""
+    def __init__(self, root: Path, per_group: int = 300, seed: int = 42,
+                 balanced: bool = False) -> None:
+        """Store the directory with Droid parquet files and the sample size per group.
+
+        With ``balanced``, every language and origin gets as many human as AI samples,
+        so pooled statistics are not driven by where one class is more common.
+        """
         self.root = root
         self.per_group = per_group
         self.seed = seed
+        self.balanced = balanced
 
     def load(self) -> Iterator[CodeRecord]:
         """Yield up to ``per_group`` records per language, origin and label."""
@@ -66,7 +72,15 @@ class DroidSource(DataSource):
         frame = frame[frame["Label"].isin(LABELS) & frame["Language"].isin(LANGUAGES)
                       & frame["origin"].notna()]
         frame = frame.sample(frac=1, random_state=self.seed)
-        return frame.groupby(["Language", "origin", "Label"]).head(self.per_group)
+        cell = ["Language", "origin"]
+        limit = pd.Series(self.per_group, index=frame.index)
+        if self.balanced:
+            counts = frame.groupby([*cell, "Label"]).size().unstack(fill_value=0)
+            counts = counts.reindex(columns=list(LABELS), fill_value=0)
+            cap = counts.min(axis=1).clip(upper=self.per_group).rename("cap")
+            limit = frame.join(cap, on=cell)["cap"]
+        rank = frame.groupby([*cell, "Label"]).cumcount()
+        return frame[rank < limit]
 
     def _to_record(self, row) -> CodeRecord:
         label = LABELS[row.Label]

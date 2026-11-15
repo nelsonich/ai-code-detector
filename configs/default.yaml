@@ -11,20 +11,28 @@ sources:
   webdproc:
     dir: data/raw/webdproc
     enabled: false
+  # Off for the study: their code is human only, so any trait of the source (era, editor,
+  # our generation prompts) would pass for a difference between human and AI. The study
+  # uses DroidCollection alone, where both classes come from the same populations.
   progpedia:
     dir: data/raw/progpedia
+    enabled: false
   codenet:
     dir: data/raw/codenet/Project_CodeNet
+    enabled: false
     per_language: 300
     max_per_problem: 3
     seed: 42
   droid:
     dir: data/raw/droid
-    # Per language, origin (competitive programming / GitHub) and label.
-    per_group: 300
+    # Per language, origin (competitive programming / GitHub) and label; balanced takes
+    # as many human as AI samples in every language and origin.
+    per_group: 1000
+    balanced: true
     seed: 42
   generated:
     dir: data/raw/generated
+    enabled: false
     # AI code for tasks whose human solutions are not loaded has nothing to be compared
     # with, so it is left out (webdproc tasks also hold all HTML and CSS).
     exclude_task_datasets: [webdproc]
@@ -102,5 +110,6 @@ preprocessing:
   min_code_chars: 50
   # Code at least this similar to a code example of its own lecture counts as copied.
   example_similarity: 0.9
-  languages: [html, css, javascript, python, c, cpp, csharp, php, java]
+  # DroidCollection has AI code for these six; PHP has human code only.
+  languages: [javascript, python, c, cpp, csharp, java]
 

@@ -19,28 +19,32 @@ PREPROCESSING_REPORT = "preprocessing_report.json"
 
 
 def build_sources(config: Config) -> list[DataSource]:
-    """Create the configured sources whose data directory exists."""
+    """Create the configured sources that are enabled and whose data directory exists."""
     settings = config.sources
+
+    def available(name: str) -> bool:
+        source = settings[name]
+        return source.get("enabled", True) and (PROJECT_ROOT / source["dir"]).exists()
+
     sources: list[DataSource] = []
-    if (settings["webdproc"].get("enabled", True)
-            and (PROJECT_ROOT / settings["webdproc"]["dir"]).exists()):
+    if available("webdproc"):
         sources.append(WebdprocSource(PROJECT_ROOT / settings["webdproc"]["dir"]))
-    if (PROJECT_ROOT / settings["progpedia"]["dir"]).exists():
+    if available("progpedia"):
         sources.append(ProgpediaSource(PROJECT_ROOT / settings["progpedia"]["dir"]))
-    codenet = settings["codenet"]
-    if (PROJECT_ROOT / codenet["dir"]).exists():
+    if available("codenet"):
+        codenet = settings["codenet"]
         sources.append(CodenetSource(
             PROJECT_ROOT / codenet["dir"],
             per_language=codenet["per_language"],
             max_per_problem=codenet["max_per_problem"],
             seed=codenet["seed"],
         ))
-    droid = settings["droid"]
-    if (PROJECT_ROOT / droid["dir"]).exists():
-        sources.append(DroidSource(PROJECT_ROOT / droid["dir"],
-                                   per_group=droid["per_group"], seed=droid["seed"]))
-    generated = settings["generated"]
-    if (PROJECT_ROOT / generated["dir"]).exists():
+    if available("droid"):
+        droid = settings["droid"]
+        sources.append(DroidSource(PROJECT_ROOT / droid["dir"], per_group=droid["per_group"],
+                                   seed=droid["seed"], balanced=droid.get("balanced", False)))
+    if available("generated"):
+        generated = settings["generated"]
         sources.append(GeneratedSource(PROJECT_ROOT / generated["dir"],
                                        generated.get("exclude_task_datasets", ())))
     return sources

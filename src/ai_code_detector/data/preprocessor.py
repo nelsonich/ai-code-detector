@@ -102,9 +102,11 @@ class CodePreprocessor:
 
     @staticmethod
     def drop_exact_duplicates(frame: pd.DataFrame) -> pd.DataFrame:
-        """Drop identical code (ignoring whitespace) for the same task, keeping the first."""
-        key = frame["code"].map(_compact)
-        return frame[~pd.concat([frame["task_id"], key], axis=1).duplicated()]
+        """Drop identical code (ignoring whitespace), keeping the first copy.
+
+        Compared across tasks too: DroidCollection gives every sample its own task id.
+        """
+        return frame[~frame["code"].map(_compact).duplicated()]
 
     def drop_lecture_copies(self, frame: pd.DataFrame,
                             examples: dict[str, list[str]]) -> pd.DataFrame:
