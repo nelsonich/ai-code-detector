@@ -13,6 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from ai_code_detector.data.schema import RECORD_COLUMNS
 
 AI = "ai"
+MIN_SEPARATION, MAX_CORRELATION = 0.1, 0.9
+SELECTED = "selected_features.json"
 # Groups of the human class by how much its label can be trusted, plus the AI class.
 GROUPS = {
     "human (verified)": ("human", "verified"),
@@ -146,6 +148,22 @@ class CodeAnalyzer:
         """Pairwise Spearman correlation between features (robust to skewed counts)."""
         return self.frame[self.feature_columns].corr(method="spearman")
 
+    def select_features(self, min_separation: float = MIN_SEPARATION,
+                        max_correlation: float = MAX_CORRELATION) -> list[str]:
+        """Pick the features to study, by two rules read off the charts.
+
+        A feature stays when it separates the classes by at least ``min_separation``
+        (the separation chart); of two features correlated above ``max_correlation``
+        only the stronger one stays (the correlation heatmap). Strongest first.
+        """
+        separation = self.class_separation()["separation"]
+        correlation = self.feature_correlation()
+        kept: list[str] = []
+        for feature in separation[separation >= min_separation].index:
+            if all(abs(correlation.loc[feature, other]) <= max_correlation for other in kept):
+                kept.append(feature)
+        return kept
+
     def pca(self, n_components: int = 2) -> tuple[pd.DataFrame, np.ndarray]:
         """Project all samples onto principal components of the standardised features.
 
@@ -187,4 +205,6 @@ class CodeAnalyzer:
         paths["pca_variance.json"] = directory / "pca_variance.json"
         paths["pca_variance.json"].write_text(json.dumps(
             {f"pc{i + 1}": round(float(v), 4) for i, v in enumerate(variance)}, indent=2))
+        paths[SELECTED] = directory / SELECTED
+        paths[SELECTED].write_text(json.dumps(self.select_features(), indent=2))
         return paths

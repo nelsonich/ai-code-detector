@@ -150,9 +150,12 @@ class FeatureEvaluator:
         return np.hstack([values, onehot.astype(float)])
 
 
-def select_features(importance: pd.DataFrame, correlation: pd.DataFrame,
-                    min_importance: float = 0.001, max_correlation: float = 0.9) -> list[str]:
-    """Keep features that help on unseen data and are not near-copies of a better one.
+def select_by_importance(importance: pd.DataFrame, correlation: pd.DataFrame,
+                         min_importance: float = 0.001,
+                         max_correlation: float = 0.9) -> list[str]:
+    """Keep features the model needs on unseen data and that are not near-copies.
+
+    The model's counterpart of ``CodeAnalyzer.select_features``, which reads the charts.
 
     A feature stays when its importance is at least ``min_importance`` on every kind of
     unseen split; of two features correlated above ``max_correlation`` only the more

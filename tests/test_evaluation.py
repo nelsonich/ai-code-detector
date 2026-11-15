@@ -10,7 +10,7 @@ from ai_code_detector.analysis.evaluation import (
     UNSEEN_ORIGIN,
     FeatureEvaluator,
     feature_sets,
-    select_features,
+    select_by_importance,
     tpr_at_fpr,
 )
 
@@ -70,11 +70,11 @@ def test_importance_ranks_the_informative_feature_first():
     assert table.loc["tab_indent_ratio"].min() > table.loc["n_chars"].max()
 
 
-def test_select_features_drops_useless_and_near_duplicate_features():
+def test_select_by_importance_drops_useless_and_near_duplicate_features():
     importance = pd.DataFrame({"a": [0.05, 0.04], "b": [0.03, 0.02], "c": [0.02, -0.01]},
                               index=["unseen language", "unseen origin"]).T
     correlation = pd.DataFrame(np.eye(3), index=list("abc"), columns=list("abc"))
     correlation.loc["a", "b"] = correlation.loc["b", "a"] = 0.95
-    assert select_features(importance, correlation) == ["a"]
+    assert select_by_importance(importance, correlation) == ["a"]
     correlation.loc["a", "b"] = correlation.loc["b", "a"] = 0.5
-    assert select_features(importance, correlation) == ["a", "b"]
+    assert select_by_importance(importance, correlation) == ["a", "b"]

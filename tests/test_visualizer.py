@@ -43,7 +43,7 @@ def test_every_figure_is_written(tmp_path):
     viz = Visualizer(tmp_path)
     paths = [
         viz.dataset_composition(frame),
-        viz.feature_separation(separation),
+        viz.feature_separation(separation, ["separating"], 0.1, {"noise": "separating"}),
         viz.feature_distributions(frame, list(separation.index[:3])),
         viz.habits_by_source(frame),
         viz.separation_by_language(analyzer.separation_by("language", min_per_class=10)),

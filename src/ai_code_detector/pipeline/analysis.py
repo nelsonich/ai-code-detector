@@ -4,14 +4,15 @@ import json
 
 import pandas as pd
 
-from ai_code_detector.analysis.analyzer import CodeAnalyzer
+from ai_code_detector.analysis.analyzer import MIN_SEPARATION, SELECTED, CodeAnalyzer
 from ai_code_detector.analysis.evaluation import (
+    ALL,
     ALL_FEATURES,
     BASELINE,
     NORMALIZED,
     FeatureEvaluator,
     feature_sets,
-    select_features,
+    select_by_importance,
 )
 from ai_code_detector.config import Config
 from ai_code_detector.data.loader import DatasetLoader
@@ -55,7 +56,15 @@ def analyze(config: Config) -> None:
 
 EVALUATION = "feature_evaluation.csv"
 IMPORTANCE = "feature_importance.csv"
-SELECTED = "selected_features.json"
+MODEL_SELECTED = "model_selected_features.json"
+
+
+def _selected_set(selected: list[str]) -> str:
+    return f"selected ({len(selected)})"
+
+
+def _model_set(selected: list[str]) -> str:
+    return f"model-selected ({len(selected)})"
 
 
 def with_normalized_features(frame: pd.DataFrame) -> pd.DataFrame:
@@ -67,44 +76,58 @@ def with_normalized_features(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def evaluate(config: Config) -> None:
-    """Score the features as one classifier, rank them and pick a smaller robust set.
+    """Check in practice the features chosen from the charts, with a classifier.
 
     Every set is trained on part of the verified data and scored on new tasks, an unseen
-    language and an unseen origin. Features are ranked by permutation importance on the
-    unseen splits; the selected set drops features that do not help or duplicate others.
+    language and an unseen origin. Features are also ranked by permutation importance on
+    the unseen splits, which gives the model's own choice to compare with the charts'.
     """
+    selected_path = config.tables_dir / SELECTED
+    if not selected_path.exists():
+        raise SystemExit(f"{selected_path} is missing: run the 'analyze' stage first")
+    selected = json.loads(selected_path.read_text())
     frame = with_normalized_features(
         DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES))
     evaluator = FeatureEvaluator(frame, config.preprocessing["languages"])
     importance = evaluator.importance(ALL_FEATURES)
     importance.to_csv(config.tables_dir / IMPORTANCE)
     correlation = evaluator.frame[ALL_FEATURES].corr(method="spearman")
-    selected = select_features(importance, correlation)
-    (config.tables_dir / SELECTED).write_text(json.dumps(selected, indent=2))
+    model_selected = select_by_importance(importance, correlation)
+    (config.tables_dir / MODEL_SELECTED).write_text(json.dumps(model_selected, indent=2))
 
     sets = feature_sets() | {
-        f"selected ({len(selected)})": selected,
+        _selected_set(selected): selected,
+        _model_set(model_selected): model_selected,
         "all features, normalized code": [c + NORMALIZED for c in ALL_FEATURES],
         "selected, normalized code": [c + NORMALIZED for c in selected],
     }
     results = evaluator.run(sets)
     results.to_csv(config.tables_dir / EVALUATION, index=False)
     with pd.option_context("display.width", 160):
-        print(f"Selected {len(selected)} of {len(ALL_FEATURES)} features: {selected}")
+        print(f"Chosen from the charts: {selected}")
+        print(f"Chosen by the model: {model_selected}")
         print("Mean AUC of a classifier on the features:")
         print(FeatureEvaluator.summary(results).round(3))
-    print(f"tables written to {config.tables_dir}: {EVALUATION}, {IMPORTANCE}, {SELECTED}")
+    print(f"tables written to {config.tables_dir}: {EVALUATION}, {IMPORTANCE}, "
+          f"{MODEL_SELECTED}")
 
 
 def plot(config: Config, top_features: int = 6) -> None:
     """Write all figures to ``reports/figures``.
 
-    Once ``evaluate`` has picked the final features, the descriptive figures show only
-    those; the evaluation figures still compare every feature set.
+    The separation chart shows every feature and marks the ones chosen from the charts
+    by ``analyze``; the other descriptive figures show only those. The evaluation
+    figures compare that choice with the model's.
     """
     frame = DatasetLoader.read(config.processed_dir / PROCESSED_FEATURES)
     selected_path = config.tables_dir / SELECTED
     selected = json.loads(selected_path.read_text()) if selected_path.exists() else ALL_FEATURES
+    every = CodeAnalyzer(frame)
+    every_separation = every.class_separation()
+    correlation = every.feature_correlation()
+    strong = every_separation.index[every_separation["separation"] >= MIN_SEPARATION]
+    duplicates = {f: correlation.loc[f, selected].abs().idxmax()
+                  for f in strong if f not in selected}
     analyzer = CodeAnalyzer(frame.drop(columns=[c for c in ALL_FEATURES if c not in selected]))
     separation = analyzer.class_separation()
     top = list(separation.index[:top_features])
@@ -112,7 +135,7 @@ def plot(config: Config, top_features: int = 6) -> None:
     viz = Visualizer(config.figures_dir)
     paths = [
         viz.dataset_composition(frame),
-        viz.feature_separation(separation),
+        viz.feature_separation(every_separation, selected, MIN_SEPARATION, duplicates),
         viz.feature_distributions(analyzer.frame, top),
         viz.habits_by_source(frame),
         viz.separation_by_language(analyzer.separation_by("language")),
@@ -123,12 +146,19 @@ def plot(config: Config, top_features: int = 6) -> None:
     evaluation_path = config.tables_dir / EVALUATION
     if evaluation_path.exists():
         summary = FeatureEvaluator.summary(pd.read_csv(evaluation_path))
-        paths.append(viz.model_evaluation(summary, {
+        model_path = config.tables_dir / MODEL_SELECTED
+        model_selected = json.loads(model_path.read_text()) if model_path.exists() else []
+        rows = {
             BASELINE: "code length only",
-            f"selected ({len(selected)})": f"{len(selected)} features"}))
+            _selected_set(selected): f"{len(selected)} chosen from the charts",
+            _model_set(model_selected): f"{len(model_selected)} chosen by the model",
+            ALL: f"all {len(ALL_FEATURES)} features",
+        }
+        paths.append(viz.model_evaluation(
+            summary, {k: v for k, v in rows.items() if k in summary.index}))
         paths.append(viz.group_ablation(summary))
         importance = pd.read_csv(config.tables_dir / IMPORTANCE, index_col=0)
-        paths.append(viz.feature_importance(importance, selected))
+        paths.append(viz.feature_importance(importance, selected, "chosen from the charts"))
     scored = scored_features(config)
     if scored is not None:
         lm = CodeAnalyzer(scored)

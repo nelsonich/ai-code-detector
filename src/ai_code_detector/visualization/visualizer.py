@@ -96,25 +96,52 @@ class Visualizer:
         ax.legend(ncols=len(counts.columns), loc="upper right")
         return self._save(fig, "01_dataset_composition.png")
 
-    def feature_separation(self, separation: pd.DataFrame) -> Path:
-        """Draw horizontal bars of how strongly each feature separates AI from human code."""
+    def feature_separation(self, separation: pd.DataFrame, selected: list[str] | None = None,
+                           threshold: float | None = None,
+                           duplicates: dict[str, str] | None = None) -> Path:
+        """Draw horizontal bars of how strongly each feature separates AI from human code.
+
+        With ``selected``, the other features are greyed out, ``threshold`` is drawn on
+        both sides and each of ``duplicates`` (feature -> the kept one it repeats) is
+        named next to its bar.
+        """
         data = separation.assign(signed=(separation["auc"] - 0.5) * 2).sort_values("signed")
-        colors = [LABEL_COLORS["ai"] if v > 0 else LABEL_COLORS["human"] for v in data["signed"]]
-        fig, ax = plt.subplots(figsize=(8.5, 7.5))
+        kept = set(data.index if selected is None else selected)
+        duplicates = duplicates or {}
+        colors = [(LABEL_COLORS["ai"] if v > 0 else LABEL_COLORS["human"]) if name in kept
+                  else AXIS for name, v in zip(data.index, data["signed"])]
+        fig, ax = plt.subplots(figsize=(8.5, 0.26 * len(data) + 1.6))
         ax.barh(data.index, data["signed"], color=colors, height=0.72)
         ax.axvline(0, color=AXIS, linewidth=1)
-        ax.set_xlim(-1, 1)
+        if threshold is not None:
+            for x in (-threshold, threshold):
+                ax.axvline(x, color=INK_SECONDARY, linewidth=1, linestyle="--")
+        limit = 1.0 if selected is None else 0.6
+        ax.set_xlim(-limit, limit)
         ax.set_xlabel("separation  (AUC − 0.5) × 2:  ← higher in human code   "
                       "higher in AI code →")
         ax.grid(axis="y", visible=False)
         ax.set_title("Which features separate AI from human code (verified labels)")
         for name, value in zip(data.index, data["signed"]):
-            if abs(value) >= 0.25:
-                ax.text(value + (0.02 if value > 0 else -0.02), name, f"{value:+.2f}",
-                        va="center", ha="left" if value > 0 else "right",
-                        color=INK_SECONDARY, fontsize=8)
+            if selected is None and abs(value) < 0.25:
+                continue
+            # Near the threshold two decimals would hide which side a feature is on.
+            near = threshold is not None and abs(abs(value) - threshold) < 0.01
+            text = f"{value:+.3f}" if near else f"{value:+.2f}"
+            if name in duplicates:
+                text += f"  ≈ {duplicates[name]}"
+            ax.text(value + (0.01 if value > 0 else -0.01), name, text,
+                    va="center", ha="left" if value > 0 else "right",
+                    color=INK_SECONDARY, fontsize=8)
+        names = ["higher in human code", "higher in AI code"]
         handles = [plt.Rectangle((0, 0), 1, 1, color=LABEL_COLORS[k]) for k in ("human", "ai")]
-        ax.legend(handles, ["higher in human code", "higher in AI code"], loc="lower right")
+        if selected is not None:
+            names.append(f"not kept ({len(data) - len(kept)})")
+            handles.append(plt.Rectangle((0, 0), 1, 1, color=AXIS))
+        if threshold is not None:
+            names.append(f"threshold ±{threshold:g}")
+            handles.append(plt.Line2D([], [], color=INK_SECONDARY, linewidth=1, linestyle="--"))
+        ax.legend(handles, names, loc="lower right")
         return self._save(fig, "02_feature_separation.png")
 
     def feature_distributions(self, frame: pd.DataFrame, features: list[str]) -> Path:
@@ -215,7 +242,8 @@ class Visualizer:
         ax.set_title("Correlation between features")
         return self._save(fig, "07_feature_correlation.png")
 
-    def feature_importance(self, importance: pd.DataFrame, selected: list[str]) -> Path:
+    def feature_importance(self, importance: pd.DataFrame, selected: list[str],
+                           kept_label: str = "kept") -> Path:
         """Draw each feature's permutation importance on unseen data, marking the kept ones."""
         order = importance.mean(axis=1).sort_values().index
         fig, axes = plt.subplots(1, len(importance.columns),
@@ -230,7 +258,7 @@ class Visualizer:
             ax.grid(axis="y", visible=False)
             ax.set_xlabel("AUC lost when the feature is shuffled")
         handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (INK, MUTED)]
-        np.atleast_1d(axes)[-1].legend(handles, [f"kept ({len(selected)})", "dropped"],
+        np.atleast_1d(axes)[-1].legend(handles, [f"{kept_label} ({len(selected)})", "others"],
                                        loc="lower right")
         fig.suptitle("How much the model needs each feature on unseen data",
                      x=0.01, ha="left", fontsize=12, fontweight="bold")

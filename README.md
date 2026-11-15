@@ -50,6 +50,15 @@ The webdproc export is private and is shared outside git; put its `samples_*.jso
 
 The team plan is in [docs/PLAN.md](docs/PLAN.md).
 
+## Feature selection
+
+`analyze` picks the features to study by two rules read off the charts: a feature must
+separate AI from human code by at least 0.1 (`02_feature_separation.png`), and of two
+features correlated above 0.9 only the stronger one stays (`07_feature_correlation.png`).
+The list is written to `reports/tables/selected_features.json`. `evaluate` then checks it
+in practice with a classifier on unseen tasks, languages and origins, and writes the
+model's own choice to `model_selected_features.json` for comparison.
+
 ## Layout
 
 ```

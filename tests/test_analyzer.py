@@ -35,6 +35,14 @@ def test_class_separation_ranks_the_separating_feature_first():
     assert table.loc["noise", "separation"] < 0.3
 
 
+def test_select_features_keeps_separating_features_and_drops_near_copies():
+    frame = _frame()
+    assert CodeAnalyzer(frame).select_features() == ["separating"]
+    copy = frame.assign(copy=frame["separating"] * 2 + 1)
+    assert len(CodeAnalyzer(copy).select_features()) == 1
+    assert set(CodeAnalyzer(copy).select_features(max_correlation=1.0)) == {"separating", "copy"}
+
+
 def test_separation_by_language_skips_groups_with_too_few_samples():
     table = CodeAnalyzer(_frame()).separation_by("language", min_per_class=30)
     assert set(table.columns) == {"java", "python"}
