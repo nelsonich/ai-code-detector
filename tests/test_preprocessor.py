@@ -1,6 +1,10 @@
 import pandas as pd
 
-from ai_code_detector.data.preprocessor import CodePreprocessor, lecture_examples
+from ai_code_detector.data.preprocessor import (
+    CodePreprocessor,
+    lecture_examples,
+    realign_cut_snippet,
+)
 
 LESSON = "webdproc:lesson:1"
 EXAMPLE = "<!DOCTYPE html>\n<html>\n  <body>\n    <h1>Heading</h1>\n  </body>\n</html>"
@@ -80,3 +84,25 @@ def test_missing_values_are_made_explicit_and_reported():
     assert "generator" not in preprocessor.report["missing_after"]
     assert preprocessor.report["missing_after"]["created_at"] == 1
     assert preprocessor.report["balance"] == {"python": {"human": 1}}
+
+
+def test_realigns_snippets_cut_out_of_a_class():
+    braces = "bool Equals(X x)\n        {\n            return x;\n        }"
+    assert realign_cut_snippet(braces, "csharp") == "bool Equals(X x)\n{\n    return x;\n}"
+    python = "def f(self):\n        if x:\n            return 1\n\n        return 2"
+    expected = "def f(self):\n    if x:\n        return 1\n\n    return 2"
+    assert realign_cut_snippet(python, "python") == expected
+    tabs = "def f(self):\n\t\treturn 1"
+    assert realign_cut_snippet(tabs, "python") == "def f(self):\n\treturn 1"
+
+
+def test_leaves_ordinary_code_alone():
+    for code, language in (
+            ("def f():\n    if x:\n        return 1\n    return 2", "python"),
+            ("int f() {\n    return 1;\n}", "cpp"),
+            ("class A:\n    def f(self):\n        g(1,\n      2)\n        return 1", "python"),
+            ("def f(self):\n    d = {\n        'a': 1,\n    }", "python"),
+            ("app.module()\n  .run(function() {\n    go();\n  });", "javascript"),
+            ("    indented_first_line()\n        more()", "python"),
+            ("x = 1\ny = 2", "python")):
+        assert realign_cut_snippet(code, language) == code

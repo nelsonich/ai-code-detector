@@ -50,6 +50,11 @@ class CodePreprocessor:
         """Apply all cleaning steps and return a new table; ``tasks`` enables lecture checks."""
         self.report = {"input_rows": len(frame), "missing_before": _missing(frame), "steps": []}
         cleaned = self.normalize_code(frame.copy())
+        realigned = pd.Series([realign_cut_snippet(code, language) for code, language
+                               in zip(cleaned["code"], cleaned["language"])],
+                              index=cleaned.index)
+        self.report["realigned"] = int((realigned != cleaned["code"]).sum())
+        cleaned["code"] = realigned
         steps = [
             ("drop_empty_or_short", self.drop_empty),
             ("filter_languages", self.filter_languages),
@@ -151,6 +156,46 @@ class CodePreprocessor:
             out[column] = out[column].astype("category")
         out["created_at"] = pd.to_datetime(out["created_at"], errors="coerce", utc=True)
         return out
+
+
+def _indent(line: str) -> str:
+    return line[:len(line) - len(line.lstrip(" \t"))]
+
+
+def realign_cut_snippet(code: str, language: str) -> str:
+    """Shift back the body of a snippet cut out of a deeper scope.
+
+    Function-level extracts (DroidCollection's TheVault part) strip the first line but
+    keep the class-level indentation of the rest, which would read as deep indentation.
+    In brace languages the closing brace goes back to the first line's column; elsewhere
+    the body keeps one level. Shallow shifts are left alone: they are usually style
+    (chained calls, continuation lines), not a cut.
+    """
+    lines = code.split("\n")
+    body = [line for line in lines[1:] if line.strip()]
+    if not body or not lines[0].strip() or _indent(lines[0]):
+        return code
+    prefix = _indent(body[0])
+    for line in body[1:]:
+        indent = _indent(line)
+        while not indent.startswith(prefix):
+            prefix = prefix[:-1]
+    if not prefix:
+        return code
+    width = len(prefix.expandtabs(4))
+    if language != "python" and body[-1].lstrip().startswith("}"):
+        if width < 4:
+            return code
+    else:
+        # Without a closing brace the true depth is unknown: only a body two or more
+        # levels deep is a cut, and it keeps one level.
+        if width < 8:
+            return code
+        level = "\t" if prefix.startswith("\t") else "    "
+        prefix = prefix[:len(prefix) - len(level)]
+    cut = len(prefix)
+    return "\n".join([lines[0]] + [line[cut:] if line.strip() else line.lstrip(" \t")
+                                   for line in lines[1:]])
 
 
 def _missing(frame: pd.DataFrame) -> dict[str, int]:
